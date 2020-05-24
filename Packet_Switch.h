@@ -10,6 +10,11 @@
 #include <ArbitratedScratchpad/ArbitratedScratchpadTypes.h>
 
 const static int N = 8;
+const static int NUM_PODS = 2*2;
+const static int POD_SZ = 2*2;
+const static int NUM_CB = 1;
+const static int NUM_SRAM = 1;
+
 
 template<typename T, typename U>
 vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
@@ -56,7 +61,7 @@ SC_MODULE(PacketSwitch)
         VectorType data;
         AddrType src;
         AddrType dst;
-        ID_type d_type; // weight, activation, result
+        ID_type d_type; // weight (0), activation (1), result (2)
         
         static const unsigned int width = ID_type::width + 2 * AddrType::width + VectorType::width; // sizeof(int) * N;
 
@@ -69,10 +74,10 @@ SC_MODULE(PacketSwitch)
         }
     };
     
-
     // I/O 
-    Connections::In<Packet>    in_ports[2];
-    Connections::Out<Packet>   out_ports[2];
+    Connections::In<Packet>    in_ports[2*POD_SZ + NUM_CB + NUM_SRAM];
+    Connections::Out<Packet>    out_ports[2*POD_SZ + NUM_CB + NUM_SRAM];
+
 
     SC_HAS_PROCESS(PacketSwitch);
     PacketSwitch(sc_module_name name_) : sc_module(name_) {
@@ -84,7 +89,9 @@ SC_MODULE(PacketSwitch)
 
     void run() {
 
-        for (int i = 0; i < 2; i++) {
+        int k = 2*POD_SZ + NUM_CB + NUM_SRAM;
+
+        for (int i = 0; i < k; i++) {
             in_ports[i].Reset();
             out_ports[i].Reset();
         }
@@ -96,7 +103,7 @@ SC_MODULE(PacketSwitch)
 
         while (1) {
 
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < k; i++) {
                 if(in_ports[i].PopNB(packet_reg)) {
                     d = packet_reg.dst;
                     wait();

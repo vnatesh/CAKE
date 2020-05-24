@@ -44,7 +44,7 @@ SC_MODULE(MB)
                             weight_reg[i][j] = packet_reg.data[i][j];
                         }
                     }
-                    printf("received weight at MB from SRAM\n");
+                    printf("received weight at MB %d from SRAM\n", id);
                     packet_reg.src = id;
                     packet_reg.dst = id + POD_SZ;
                     packet_reg.d_type = 0;
@@ -57,7 +57,7 @@ SC_MODULE(MB)
                             act_reg[i][j] = packet_reg.data[i][j];
                         }
                     }
-                    printf("received activation at MB from SRAM\n");
+                    printf("received activation at MB %d from SRAM\n", id);
                     packet_reg.src = id;
                     packet_reg.dst = id + POD_SZ;
                     packet_reg.d_type = 1;

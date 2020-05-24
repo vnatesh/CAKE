@@ -1,10 +1,6 @@
 #ifndef __SA_H__
 #define __SA_H__
 
-#include <systemc.h>
-#include <nvhls_int.h>
-#include <nvhls_connections.h>
-
 #include "PacketSwitch.h"
 
 
@@ -17,6 +13,8 @@ SC_MODULE(SA)
     // Interface Ports
     Connections::In<PacketSwitch::Packet>   packet_in;
     Connections::Out<PacketSwitch::Packet>  packet_out;
+
+    PacketSwitch::ID_type id;
 
     SC_HAS_PROCESS(SA);
     SA(sc_module_name name_) : sc_module(name_) {
@@ -44,19 +42,19 @@ SC_MODULE(SA)
         #pragma hls_pipeline_init_interval 1
         while(1) {
             if (packet_in.PopNB(packet_reg)) {
-                if(packet_reg.src == 0 && packet_reg.d_type == 0) { // weights
+                if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 0) { // weights
                     if(is_weight_in == 0) {
                         for(int i = 0; i < N; i++) {
                             for (int j = 0; j < N; j++) {
                                 weight_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
-                        printf("received weight at SA from MB\n");
+                        printf("SA %d receive weight from MB %d\n", id, packet_reg.src);
                         is_weight_in = 1;
                     }
                 }
 
-                else if(packet_reg.src == 0 && packet_reg.d_type == 1) { // activation
+                else if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 1) { // activation
                     if(is_act_in == 0) {
 
                         for(int i = 0; i < N; i++) {
@@ -64,7 +62,7 @@ SC_MODULE(SA)
                                 act_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
-                        printf("received activation at SA from MB\n");
+                        printf("SA %d receive activation from MB %d\n", id, packet_reg.src);
                         is_act_in = 1;
                     }                    
                 }
@@ -78,10 +76,10 @@ SC_MODULE(SA)
                         packet_reg.data[i][j] = result_reg[i][j];
                     }
                 }
-                packet_reg.src = 1;
-                packet_reg.dst = 0;
-                packet_reg.d_type = 2; // activation type                    
-                printf("sending result to SRAM\n");
+                packet_reg.src = id;
+                packet_reg.dst = 2*POD_SZ+1; // destination is CB
+                packet_reg.d_type = 2; // result type                    
+                printf("SA %d sending result to CB\n", id);
                 packet_out.Push(packet_reg);
                 is_weight_in = 0;
                 is_act_in = 0;
