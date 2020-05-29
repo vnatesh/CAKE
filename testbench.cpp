@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#include "SA.h"
-#include "MB.h"
-#include "CB.h"
 #include "SRAM.h"
 #include "pod.h"
 
@@ -48,40 +45,26 @@ template<typename T> vector<vector<T>> GetMat(int rows, int cols) {
   return mat;
 }
 
-template<typename T> void PrintMat(vector<vector<T>> mat) {
-  int rows = (int) mat.size();
-  int cols = (int) mat[0].size();
-  for (int i = 0; i < rows; i++) {
-    cout << "\t";
-    for (int j = 0; j < cols; j++) {
-      cout << mat[i][j] << "\t";
-    }
-    cout << endl;
-  }
-  cout << endl;
-}
-
-
 
 SC_MODULE (testbench) {
 
   SRAM sram;
   Pod pod;
-  CB cb;
 
-
+  // SRAM connections
   Connections::Combinational<PacketSwitch::Packet> sram_pod_out;  
-  Connections::Combinational<PacketSwitch::Packet> sram_pod_in;  
+  // Connections::Combinational<PacketSwitch::Packet> sram_pod_in;  
 
   // switch connections
-  Connections::Combinational<PacketSwitch::Packet> mb_in[POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> mb_out[POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> sa_in[POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> sa_out[POD_SZ];
+  Connections::Combinational<PacketSwitch::Packet> mb_in[NUM_PODS][POD_SZ];
+  Connections::Combinational<PacketSwitch::Packet> mb_out[NUM_PODS][POD_SZ];
+  Connections::Combinational<PacketSwitch::Packet> sa_in[NUM_PODS][POD_SZ];
+  Connections::Combinational<PacketSwitch::Packet> sa_out[NUM_PODS][POD_SZ];
+  // Connections::Combinational<PacketSwitch::Packet> cb_in[NUM_PODS];
+  Connections::Combinational<PacketSwitch::Packet> cb_out[NUM_PODS];
+
   Connections::Combinational<PacketSwitch::Packet> sram_in;
-  Connections::Combinational<PacketSwitch::Packet> sram_out;
-  Connections::Combinational<PacketSwitch::Packet> cb_in;
-  Connections::Combinational<PacketSwitch::Packet> cb_out;
+  // Connections::Combinational<PacketSwitch::Packet> sram_out;
 
 
   sc_clock clk;
@@ -90,56 +73,54 @@ SC_MODULE (testbench) {
   SC_CTOR(testbench) :
     sram("sram"),
     pod("pod"),
-    cb("cb"),
     clk("clk", 1, SC_NS, 0.5, 0, SC_NS, true),
     rst("rst")
   {
-    // 0-3 is MB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
 
-    for (int i = 0; i < POD_SZ; i++) {
-      // MB to switch ports
-      pod.p_switch->in_ports[i](mb_in[i]);
-      pod.p_switch->out_ports[i](mb_out[i]);
-      pod.mb[i]->packet_in(mb_out[i]);
-      pod.mb[i]->packet_out(mb_in[i]);
-      pod.mb[i]->clk(clk);
-      pod.mb[i]->rst(rst);
+    // 0-3 is MB ind, 4-7 is SA ind, 8 is CB, 
+    for (int j = 0; j < NUM_PODS; j++) {
+      for (int i = 0; i < POD_SZ; i++) {
+        // MB to switch ports
+        pod.p_switch->in_ports[j][i](mb_in[j][i]);
+        pod.p_switch->out_ports[j][i](mb_out[j][i]);
+        pod.mb[j][i]->packet_in(mb_out[j][i]);
+        pod.mb[j][i]->packet_out(mb_in[j][i]);
+        pod.mb[j][i]->clk(clk);
+        pod.mb[j][i]->rst(rst);
 
-      // SA to switch ports
-      pod.p_switch->in_ports[i+POD_SZ](sa_in[i]);
-      pod.p_switch->out_ports[i+POD_SZ](sa_out[i]);
-      pod.sa[i]->packet_in(sa_out[i]);
-      pod.sa[i]->packet_out(sa_in[i]);
-      pod.sa[i]->clk(clk);
-      pod.sa[i]->rst(rst);
+        // SA to switch ports
+        pod.p_switch->in_ports[j][i+POD_SZ](sa_in[j][i]);
+        pod.p_switch->out_ports[j][i+POD_SZ](sa_out[j][i]);
+        pod.sa[j][i]->packet_in(sa_out[j][i]);
+        pod.sa[j][i]->packet_out(sa_in[j][i]);
+        pod.sa[j][i]->clk(clk);
+        pod.sa[j][i]->rst(rst);
+      }
+
+      pod.p_switch->out_ports[j][2*POD_SZ](cb_out[j]);
+      pod.cb[j]->packet_in(cb_out[j]);
+      pod.cb[j]->clk(clk);
+      pod.cb[j]->rst(rst);
+
     }
 
-    // cb to switch ports
-    pod.p_switch->in_ports[2*POD_SZ+1](cb_in);
-    pod.p_switch->out_ports[2*POD_SZ+1](cb_out);
-    cb.packet_in(cb_out);
-    cb.packet_out(cb_in);
-
-    // pod to switch ports
-    pod.p_switch->in_ports[2*POD_SZ](sram_in);
-    pod.packet_out(sram_in);
-    pod.p_switch->out_ports[2*POD_SZ](sram_out);
-    pod.packet_in(sram_out);
-
     // sram to pod ports
-    sram.packet_out(sram_pod_out);  
     pod.pod_sram_in(sram_pod_out);
-    sram.packet_in(sram_pod_in);  
-    pod.pod_sram_out(sram_pod_in);
+    sram.packet_out(sram_pod_out);  
+    // pod.pod_sram_out(sram_pod_in);
+    // sram.packet_in(sram_pod_in);  
 
-    pod.clk(clk);
-    pod.rst(rst);
+    pod.p_switch->pod_in_port(sram_in);
+    pod.packet_out(sram_in);
+    // pod.p_switch->pod_out_port(sram_out);
+    // pod.packet_in(sram_out);
+
     pod.p_switch->clk(clk);
     pod.p_switch->rst(rst);
+    pod.clk(clk);
+    pod.rst(rst);
     sram.clk(clk);
     sram.rst(rst);
-    cb.clk(clk);
-    cb.rst(rst);
 
     SC_THREAD(run);
   }
@@ -151,7 +132,7 @@ SC_MODULE (testbench) {
     rst = 0;
     wait(1, SC_NS);
     rst = 1;
-    wait(100,SC_NS);
+    wait(10000,SC_NS);
     cout << "@" << sc_time_stamp() << " Stop " << endl ;
     sc_stop();
   }
@@ -163,54 +144,61 @@ SC_MODULE (testbench) {
 int sc_main(int argc, char *argv[]) {
   
   nvhls::set_random_seed();
-  // Weight N*N 
-  // Input N*M
-  // Output N*M
-  vector<vector<vector<PacketSwitch::AccumType>>> weight_mat;
-  vector<vector<vector<PacketSwitch::AccumType>>> act_mat;
-  vector<vector<vector<PacketSwitch::AccumType>>>  output_mat;
-
-  for(int i = 0; i < POD_SZ; i++) {
-    weight_mat.push_back(GetMat<PacketSwitch::AccumType>(N, N));
-    act_mat.push_back(GetMat<PacketSwitch::AccumType>(N, N));
-    output_mat.push_back(MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_mat[i], act_mat[i])); 
-  }
-
-  // initialize final_out and cb_mat to 0 
-  vector<vector<PacketSwitch::AccumType>> final_out(N, vector<PacketSwitch::AccumType>(N,0));
-  vector<vector<PacketSwitch::AccumType>> cb_mat(N, vector<PacketSwitch::AccumType>(N,0)); 
-
-  for(int i = 0; i < N; i++) {
-    for(int j = 0; j < N; j++) {
-      for(int x = 0; x < POD_SZ; x++) {
-        final_out[i][j] += output_mat[x][i][j];
-      }
-    }
-  }
-
-  cout << "Reference Output Matrix " << endl; 
-  PrintMat(final_out);
-  printf("\n\n\n");
-
   testbench my_testbench("my_testbench");
-  for(int i = 0; i < POD_SZ; i++) {
-    my_testbench.sram.weight_mat.push_back(weight_mat[i]);
-    my_testbench.sram.act_mat.push_back(act_mat[i]);
+
+  // vector<vector<vector<vector<PacketSwitch::AccumType>>>> cbmat(NUM_PODS,
+  //                   vector<vector<vector<PacketSwitch::AccumType>>>(alpha * POD_SZ, 
+  //                           vector<vector<PacketSwitch::AccumType>>(tile_sz, 
+  //                                   vector<PacketSwitch::AccumType>(tile_sz, 0))));
+
+
+  // vector<vector<PacketSwitch::AccumType>> tmp;
+
+  for(int j = 0; j < NUM_PODS; j++) {
+    for(int i = 0; i < POD_SZ; i++) {
+      my_testbench.pod.mb[j][i]->id = i;
+      my_testbench.pod.sa[j][i]->id = i + POD_SZ;
+    }
+
+    my_testbench.pod.cb[j]->id = 2*POD_SZ;
+    vector<vector<vector<PacketSwitch::AccumType>>> cbmat(alpha * POD_SZ, 
+                                vector<vector<PacketSwitch::AccumType>>(tile_sz, 
+                                        vector<PacketSwitch::AccumType>(tile_sz, 0)));
+    my_testbench.pod.cb[j]->cb_mat = cbmat;
+    // for(int x = 0; x < alpha * POD_SZ; x++) {
+    //   tmp = GetMat<PacketSwitch::AccumType>(tile_sz, tile_sz);
+    //   for(int p = 0; p < tile_sz; p++) {
+    //     for(int q = 0; q < tile_sz; q++) {
+    //       tmp[p][q] = 0;
+    //     }
+    //   }
+
+    //   my_testbench.pod.cb[j]->cb_mat.push_back(tmp);
+    // }
   }
 
-  my_testbench.cb.cb_mat = cb_mat;
 
-  for(int i = 0; i < POD_SZ; i++) {
-    my_testbench.pod.mb[i]->id = i;
-    my_testbench.pod.sa[i]->id = i + POD_SZ;
-  }
+  int M = Wy;
+  int K = Wz;
+  int N = Dx;
 
+  // Create weight and data matrices with random values
+  my_testbench.sram.weights = GetMat<PacketSwitch::AccumType>(M, K);
+  my_testbench.sram.activations = GetMat<PacketSwitch::AccumType>(K, N);
 
-  my_testbench.sram.id = 2*POD_SZ;
-  my_testbench.cb.id = 2*POD_SZ + 1;
+  vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(K));
+  ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.sram.weights, my_testbench.sram.activations);
+
+  cout << "Weight matrix: \n";
+  PrintMat(my_testbench.sram.weights);
+  cout << "Activation matrix: \n";
+  PrintMat(my_testbench.sram.activations);
+  cout << "Reference Output: \n";
+  PrintMat(ref_out);
 
   sc_start();
   cout << "CMODEL PASS" << endl;
   return 0;
 };
+
 

@@ -25,17 +25,18 @@ SC_MODULE(SA)
 
 
     void run() {
+
         packet_in.Reset();
         packet_out.Reset();
+        wait(20.0, SC_NS);
 
         bool is_weight_in = 0 ;
         bool is_act_in = 0;
 
-
         PacketSwitch::Packet packet_reg;
-        vector<vector<PacketSwitch::AccumType>> weight_reg(N, vector<PacketSwitch::AccumType>(N)); 
-        vector<vector<PacketSwitch::AccumType>> act_reg(N, vector<PacketSwitch::AccumType>(N)); 
-        vector<vector<PacketSwitch::AccumType>> result_reg(N, vector<PacketSwitch::AccumType>(N)); 
+        vector<vector<PacketSwitch::AccumType>> weight_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
+        vector<vector<PacketSwitch::AccumType>> act_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
+        vector<vector<PacketSwitch::AccumType>> result_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
 
         // vector<vector<T>> mat(rows, vector<T>(cols)); 
 
@@ -44,8 +45,8 @@ SC_MODULE(SA)
             if (packet_in.PopNB(packet_reg)) {
                 if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 0) { // weights
                     if(is_weight_in == 0) {
-                        for(int i = 0; i < N; i++) {
-                            for (int j = 0; j < N; j++) {
+                        for(int i = 0; i < tile_sz; i++) {
+                            for (int j = 0; j < tile_sz; j++) {
                                 weight_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
@@ -57,8 +58,8 @@ SC_MODULE(SA)
                 else if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 1) { // activation
                     if(is_act_in == 0) {
 
-                        for(int i = 0; i < N; i++) {
-                            for (int j = 0; j < N; j++) {
+                        for(int i = 0; i < tile_sz; i++) {
+                            for (int j = 0; j < tile_sz; j++) {
                                 act_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
@@ -71,17 +72,24 @@ SC_MODULE(SA)
             if(is_weight_in && is_act_in) { // do matmul and send result
           
                 result_reg = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_reg, act_reg); 
-                for(int i = 0; i < N; i++) {
-                    for (int j = 0; j < N; j++) {                          
+                for(int i = 0; i < tile_sz; i++) {
+                    for (int j = 0; j < tile_sz; j++) {                          
                         packet_reg.data[i][j] = result_reg[i][j];
                     }
                 }
+
                 packet_reg.src = id;
-                packet_reg.dst = 2*POD_SZ+1; // destination is CB
+                packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
+                packet_reg.dst = 2*POD_SZ; // destination is CB
                 packet_reg.d_type = 2; // result type                    
                 printf("SA %d sending result to CB\n", id);
                 packet_out.Push(packet_reg);
-                is_weight_in = 0;
+                
+                // // TODO :  currently, we only send a single round of weights to the SAs i.e. a single
+                // // block in the schedule. Keep weight in for now, later change to reload weights by 
+                // // parsing packet for 'sa_reload_weight' instruction 
+
+                // is_weight_in = 0;
                 is_act_in = 0;
                 // is_done = 1;
             }
@@ -91,4 +99,5 @@ SC_MODULE(SA)
     }
 };
 #endif
+
 
