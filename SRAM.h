@@ -6,12 +6,10 @@
 
 SC_MODULE (SRAM) {
 
-
-  // Connections::In<PacketSwitch::Packet> packet_in;
+  Connections::In<PacketSwitch::Packet> packet_in;
   Connections::Out<PacketSwitch::Packet> packet_out;
   sc_in <bool> clk;
   sc_in <bool> rst;
-
 
   vector<vector<PacketSwitch::AccumType>> weights;
   vector<vector<PacketSwitch::AccumType>> activations;
@@ -27,12 +25,12 @@ SC_MODULE (SRAM) {
 
   void run() {
 
-    // PacketSwitch::Packet   p_in;
+    PacketSwitch::Packet   p_in;
     PacketSwitch::Packet   p_out1;
     PacketSwitch::Packet   p_out2;
 
     packet_out.Reset();
-    // packet_in.Reset();
+    packet_in.Reset();
     // Wait for initial reset.
     wait(20.0, SC_NS);
 
@@ -49,11 +47,9 @@ SC_MODULE (SRAM) {
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
             p_out1.data[i][j] = weights[m * tile_sz + i][k * tile_sz + j];
-            printf("%d ", p_out1.data[i][j]);
           }
-          printf("\n");
         }
-        printf("\n");
+
         wait(5);
 
         p_out1.src = 999; // sram src
@@ -78,6 +74,7 @@ SC_MODULE (SRAM) {
               p_out2.data[i][j] = activations[k * tile_sz + i][n * tile_sz + j];
             }
           }
+
           wait(5);
 
           p_out2.src = 999;
@@ -92,6 +89,21 @@ SC_MODULE (SRAM) {
     }
 
 
+    while(1) {
+
+      if(packet_in.PopNB(p_in)) {
+
+        for (int i = 0; i < tile_sz; i++) {
+          for (int j = 0; j < tile_sz; j++) {
+            printf("%d ", p_in.data[i][j]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+      }
+
+      wait(5);
+    }
   }
 };
 

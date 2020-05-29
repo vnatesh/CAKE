@@ -50,7 +50,7 @@ SC_MODULE(SA)
                                 weight_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
-                        printf("SA %d receive weight from MB %d\n", id, packet_reg.src);
+                        printf("SA %d Pod %d receive weight from MB %d \n", id, packet_reg.dstPod, packet_reg.src);
                         is_weight_in = 1;
                     }
                 }
@@ -63,7 +63,7 @@ SC_MODULE(SA)
                                 act_reg[i][j] = packet_reg.data[i][j];
                             }
                         }
-                        printf("SA %d receive activation from MB %d\n", id, packet_reg.src);
+                        printf("SA %d Pod %d receive activation from MB %d \n", id, packet_reg.dstPod, packet_reg.src);
                         is_act_in = 1;
                     }                    
                 }
@@ -82,7 +82,7 @@ SC_MODULE(SA)
                 packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
                 packet_reg.dst = 2*POD_SZ; // destination is CB
                 packet_reg.d_type = 2; // result type                    
-                printf("SA %d sending result to CB\n", id);
+                printf("SA %d Pod %d sending result to CB\n", id, packet_reg.srcPod);
                 packet_out.Push(packet_reg);
                 
                 // // TODO :  currently, we only send a single round of weights to the SAs i.e. a single
@@ -94,7 +94,7 @@ SC_MODULE(SA)
                 // is_done = 1;
             }
 
-            wait();
+            wait(1);
         }
     }
 };

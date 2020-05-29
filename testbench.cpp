@@ -51,21 +51,19 @@ SC_MODULE (testbench) {
   SRAM sram;
   Pod pod;
 
-  // SRAM connections
+  // SRAM-pod connections
   Connections::Combinational<PacketSwitch::Packet> sram_pod_out;  
-  // Connections::Combinational<PacketSwitch::Packet> sram_pod_in;  
+  Connections::Combinational<PacketSwitch::Packet> sram_pod_in;  
 
   // switch connections
   Connections::Combinational<PacketSwitch::Packet> mb_in[NUM_PODS][POD_SZ];
   Connections::Combinational<PacketSwitch::Packet> mb_out[NUM_PODS][POD_SZ];
   Connections::Combinational<PacketSwitch::Packet> sa_in[NUM_PODS][POD_SZ];
   Connections::Combinational<PacketSwitch::Packet> sa_out[NUM_PODS][POD_SZ];
-  // Connections::Combinational<PacketSwitch::Packet> cb_in[NUM_PODS];
+  Connections::Combinational<PacketSwitch::Packet> cb_in[NUM_PODS];
   Connections::Combinational<PacketSwitch::Packet> cb_out[NUM_PODS];
-
   Connections::Combinational<PacketSwitch::Packet> sram_in;
-  // Connections::Combinational<PacketSwitch::Packet> sram_out;
-
+  Connections::Combinational<PacketSwitch::Packet> sram_out;
 
   sc_clock clk;
   sc_signal<bool> rst;
@@ -97,6 +95,8 @@ SC_MODULE (testbench) {
         pod.sa[j][i]->rst(rst);
       }
 
+      pod.p_switch->in_ports[j][2*POD_SZ](cb_in[j]);
+      pod.cb[j]->packet_out(cb_in[j]);
       pod.p_switch->out_ports[j][2*POD_SZ](cb_out[j]);
       pod.cb[j]->packet_in(cb_out[j]);
       pod.cb[j]->clk(clk);
@@ -107,13 +107,13 @@ SC_MODULE (testbench) {
     // sram to pod ports
     pod.pod_sram_in(sram_pod_out);
     sram.packet_out(sram_pod_out);  
-    // pod.pod_sram_out(sram_pod_in);
-    // sram.packet_in(sram_pod_in);  
+    pod.pod_sram_out(sram_pod_in);
+    sram.packet_in(sram_pod_in);  
 
     pod.p_switch->pod_in_port(sram_in);
     pod.packet_out(sram_in);
-    // pod.p_switch->pod_out_port(sram_out);
-    // pod.packet_in(sram_out);
+    pod.p_switch->pod_out_port(sram_out);
+    pod.packet_in(sram_out);
 
     pod.p_switch->clk(clk);
     pod.p_switch->rst(rst);
@@ -132,7 +132,7 @@ SC_MODULE (testbench) {
     rst = 0;
     wait(1, SC_NS);
     rst = 1;
-    wait(10000,SC_NS);
+    wait(100000,SC_NS);
     cout << "@" << sc_time_stamp() << " Stop " << endl ;
     sc_stop();
   }
@@ -185,6 +185,12 @@ int sc_main(int argc, char *argv[]) {
   // Create weight and data matrices with random values
   my_testbench.sram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.sram.activations = GetMat<PacketSwitch::AccumType>(K, N);
+  // vector<vector<PacketSwitch::AccumType>> final_result = vector<vector<PacketSwitch::AccumType>>(M, 
+                                                                // vector<PacketSwitch::AccumType>(N, 0));
+  // my_testbench.sram.final_result = final_result;
+
+
+
 
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(K));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.sram.weights, my_testbench.sram.activations);

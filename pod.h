@@ -15,11 +15,10 @@ SC_MODULE(Pod) {
 
 
   Connections::In<PacketSwitch::Packet> pod_sram_in;
-  // Connections::Out<PacketSwitch::Packet> pod_sram_out;
+  Connections::Out<PacketSwitch::Packet> pod_sram_out;
 
-  // Connections::In<PacketSwitch::Packet> packet_in;
+  Connections::In<PacketSwitch::Packet> packet_in;
   Connections::Out<PacketSwitch::Packet> packet_out;
-
 
   sc_in_clk     clk;
   sc_in<bool> rst;
@@ -49,8 +48,9 @@ SC_MODULE(Pod) {
   void run() {
 
     pod_sram_in.Reset();
+    pod_sram_out.Reset();
     packet_out.Reset();
-    // pod_sram_out.Reset();
+    packet_in.Reset();
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in1;
@@ -58,18 +58,14 @@ SC_MODULE(Pod) {
 
     while(1) {
       if(pod_sram_in.PopNB(p_in1)) {
-        // for (int i = 0; i < tile_sz; i++) {
-        //   for (int j = 0; j < tile_sz; j++) {
-        //     printf("%d ", p_in1.data[i][j]);
-        //   }
-        //   printf("\n");
-        // }
-        // printf("\n");
-
         packet_out.Push(p_in1);
       }
 
-      wait(1);            
+      if(packet_in.PopNB(p_in2)) {
+        pod_sram_out.Push(p_in2);
+      } 
+
+      wait();            
     }
   }
 

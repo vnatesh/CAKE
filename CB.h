@@ -11,7 +11,7 @@ SC_MODULE(CB)
   sc_in <bool>   rst;
   
   Connections::In<PacketSwitch::Packet>  packet_in;
-  // Connections::Out<PacketSwitch::Packet>  packet_out;
+  Connections::Out<PacketSwitch::Packet>  packet_out;
 
   vector<vector<vector<PacketSwitch::AccumType>>> cb_mat; 
   PacketSwitch::ID_type id;
@@ -32,7 +32,7 @@ SC_MODULE(CB)
   void run() {
 
     packet_in.Reset();
-    // packet_out.Reset();
+    packet_out.Reset();
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
@@ -40,11 +40,6 @@ SC_MODULE(CB)
     
     int accum_cnt = 0;
     int tile_cnt = 0;
-
-    // printf("OHHHNPOOOP\n");
-    // printf("%d\n", cb_mat.size());
-    // printf("%d\n", cb_mat[0].size());
-    // printf("%d\n", cb_mat[0][0].size());
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
@@ -59,6 +54,8 @@ SC_MODULE(CB)
         }
       }
 
+      wait(5);
+
       if(accum_cnt == POD_SZ) {
         accum_cnt = 0;
         tile_cnt++;
@@ -69,27 +66,25 @@ SC_MODULE(CB)
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
               p_out.data[i][j] = cb_mat[t][i][j];
-              printf("%d ", p_out.data[i][j]);
               cb_mat[t][i][j] = 0; // set cb_mat to 0;
             }
-            printf("\n");
           }
-          printf("\n");
-
-          // p_out.src = id;
-          // p_out.dst = 999; // destination is SRAM
-          // p_out.dstPod = 0; // destination pod is default 0 for SRAM
-          // p_out.d_type = 2; // result type                    
-          // printf("CB %d sending tile %d to SRAM\n", id, t);
-          // packet_out.Push(p_out);
-          // wait();
+          wait(5);
+          p_out.src = id;
+          p_out.srcPod = p_in.dstPod;
+          p_out.dst = 999; // destination is SRAM
+          p_out.dstPod = 0; // destination pod is default 0 for SRAM
+          p_out.d_type = 2; // result type                    
+          printf("CB %d sending tile %d to SRAM\n", p_out.srcPod, t);
+          packet_out.Push(p_out);
+          wait(1);
         }
       
         accum_cnt = 0;
         tile_cnt = 0;
       }
 
-      wait();
+      wait(1);
     }
   }
 };
