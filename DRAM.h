@@ -21,18 +21,19 @@ SC_MODULE(DRAM) {
     SC_THREAD(run);
     sensitive << clk.pos();
     async_reset_signal_is(rst, false);
+
+    SC_THREAD(receive);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst); 
   }
 
 
   void run() {
 
-    PacketSwitch::Packet   p_in;
     PacketSwitch::Packet   p_out1;
     PacketSwitch::Packet   p_out2;
 
-
     packet_out.Reset();
-    packet_in.Reset();
     // Wait for initial reset.
     wait(20.0, SC_NS);
 
@@ -45,7 +46,7 @@ SC_MODULE(DRAM) {
     //   for(int b_ = 0; b_m < M; b_m++) {
 
     // TODO : run of 3 blocks for now, change to full matrices
-    // for(int b = 0; b < 3; b++) {
+    for(int b = 0; b < 3; b++) {
 
       // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
       printf("Sending weights from DRAM to SRAM \n");
@@ -90,8 +91,14 @@ SC_MODULE(DRAM) {
           wait(100);
         }
       }
-    // }
+    }
+  }
 
+  void receive() {
+
+    PacketSwitch::Packet   p_in;
+    packet_in.Reset();
+    wait(20.0, SC_NS);
 
     while(1) {
 
@@ -110,6 +117,8 @@ SC_MODULE(DRAM) {
       wait(5);
     }
   }
+
+
 };
 
 
