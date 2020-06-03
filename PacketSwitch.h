@@ -103,8 +103,8 @@ SC_MODULE(PacketSwitch)
     };
     
 
-    Connections::In<Packet>    pod_in_port;
-    Connections::Out<Packet>   pod_out_port;
+    Connections::In<Packet>    maestro_in_port;
+    Connections::Out<Packet>   maestro_out_port;
 
     // Connections::In<Packet>    in_ports[NUM_PODS][2*POD_SZ];
     Connections::In<Packet>    in_ports[NUM_PODS][2*POD_SZ + NUM_CB];
@@ -122,8 +122,8 @@ SC_MODULE(PacketSwitch)
 
     void run() {
 
-        pod_in_port.Reset();
-        pod_out_port.Reset();
+        maestro_in_port.Reset();
+        maestro_out_port.Reset();
 
         for (int j = 0; j < NUM_PODS; j++) {
           for (int i = 0; i < 2*POD_SZ; i++) {
@@ -141,8 +141,8 @@ SC_MODULE(PacketSwitch)
         Packet p_in2;
 
         while (1) {
-          // send input from SRAM to pod
-          if(pod_in_port.PopNB(p_in1)) {
+          // send input from SRAM to maestro
+          if(maestro_in_port.PopNB(p_in1)) {
             d = p_in1.dst;
             e = p_in1.dstPod;
             out_ports[e][d].Push(p_in1);
@@ -157,7 +157,7 @@ SC_MODULE(PacketSwitch)
                 e = p_in2.dstPod;
                 // out_ports[e][d].Push(p_in2);
                 if(d == 999 && e == 0) {
-                  pod_out_port.Push(p_in2); // This  sends value to Pod module, 
+                  maestro_out_port.Push(p_in2); // This  sends value to Pod module, 
                                                   // which then intercpnnects directly to SRAM
                                                   // see pod_out_port binding.
                 } else {
