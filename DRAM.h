@@ -18,17 +18,17 @@ SC_MODULE(DRAM) {
   PacketSwitch::ID_type id;
 
   SC_CTOR(DRAM) {
-    SC_THREAD(run);
+    SC_THREAD(send_blocks);
     sensitive << clk.pos();
     async_reset_signal_is(rst, false);
 
-    SC_THREAD(receive);
+    SC_THREAD(receive_results);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst); 
   }
 
 
-  void run() {
+  void send_blocks() {
 
     PacketSwitch::Packet   p_out1;
     PacketSwitch::Packet   p_out2;
@@ -94,7 +94,7 @@ SC_MODULE(DRAM) {
     }
   }
 
-  void receive() {
+  void receive_results() {
 
     PacketSwitch::Packet   p_in;
     packet_in.Reset();

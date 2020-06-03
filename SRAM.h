@@ -20,22 +20,24 @@ SC_MODULE(SRAM) {
   // 0-3 is MB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
   SC_HAS_PROCESS(SRAM);
   SRAM(sc_module_name name_) : sc_module(name_) {
-    SC_THREAD(run);
+    SC_THREAD(send_block);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+    SC_THREAD(receive_result);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
   }
 
 
-  void run() {
+  void send_block() {
 
     sram_dram_in.Reset();
-    sram_dram_out.Reset();
     packet_out.Reset();
-    packet_in.Reset();
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
-    PacketSwitch::Packet p_in2;
 
     PacketSwitch::Packet p_out1;
     PacketSwitch::Packet p_out2;
@@ -151,8 +153,20 @@ SC_MODULE(SRAM) {
           }
         }
       }
-      
 
+      wait();            
+    }
+  }
+
+
+  void receive_result() {
+
+    sram_dram_out.Reset();
+    packet_in.Reset();
+    wait(20.0, SC_NS);
+
+    PacketSwitch::Packet p_in2;
+    while(1) {
       if(packet_in.PopNB(p_in2)) {
         sram_dram_out.Push(p_in2);
       } 
@@ -160,6 +174,8 @@ SC_MODULE(SRAM) {
       wait();            
     }
   }
+
+
 };
 
 
