@@ -145,7 +145,7 @@ SC_MODULE (testbench) {
     rst = 0;
     wait(1, SC_NS);
     rst = 1;
-    wait(200000,SC_NS);
+    wait(1000000,SC_NS);
     cout << "@" << sc_time_stamp() << " Stop " << endl ;
     sc_stop();
   }
@@ -192,23 +192,24 @@ int sc_main(int argc, char *argv[]) {
     // }
   }
 
-  int M = Wy;
-  int K = Wz;
-  int N = Dx;
+  // int M = Wy;
+  // int K = Wz;
+  // int N = Dx;
 
-  // run size of 3 blocks
-  // int M = Wy * 3;
-  // int K = Wz * 3;
-  // int N = Dx * 3;
+  // 3x3x3 Block schedule
+  int M = Wy*3;
+  int K = Wz*3;
+  int N = Dx*3;
 
   // Create weight and data matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
-  // vector<vector<PacketSwitch::AccumType>> final_result = vector<vector<PacketSwitch::AccumType>>(M, 
-                                                                // vector<PacketSwitch::AccumType>(N, 0));
-  // my_testbench.sram.final_result = final_result;
 
-  vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(K));
+  vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
+                                                                vector<PacketSwitch::AccumType>(N, 0));
+  my_testbench.dram.result = result;
+
+  vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
   cout << "Weight matrix: \n";
