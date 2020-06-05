@@ -23,12 +23,6 @@ SC_MODULE(CB)
       NVHLS_NEG_RESET_SIGNAL_IS(rst);
   }
 
-  // SC_CTOR(CB) {
-  //   SC_THREAD(run);
-  //   sensitive << clk.pos();
-  //   async_reset_signal_is(rst, false);
-  // }
-
   void run() {
 
     packet_in.Reset();
@@ -40,17 +34,20 @@ SC_MODULE(CB)
     
     int accum_cnt = 0;
     int tile_cnt = 0;
+    int K_cnt = 0;
+    int K = Wz * 3;
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
         if(p_in.dst == id && p_in.d_type == 2) { // dst is cb and packet is result type
-          printf("Partial result received at CB\n");
-          accum_cnt++;
+          printf("Partial result received at CB %d\n", p_in.dstPod);
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
               cb_mat[tile_cnt][i][j] += p_in.data[i][j];
             }
           }
+
+          accum_cnt++;
         }
       }
 
@@ -62,6 +59,13 @@ SC_MODULE(CB)
       }
 
       if(tile_cnt == alpha * POD_SZ) {
+        accum_cnt = 0;
+        tile_cnt = 0;
+        K_cnt++;
+      }
+
+      if(K_cnt == (K / Wz)) {
+        tile_cnt = alpha * POD_SZ;
         for(int t = 0; t < tile_cnt; t++) {
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
@@ -82,11 +86,14 @@ SC_MODULE(CB)
       
         accum_cnt = 0;
         tile_cnt = 0;
-      }
+        K_cnt = 0;
+      } 
 
       wait(1);
     }
   }
+
+
 };
 
 
