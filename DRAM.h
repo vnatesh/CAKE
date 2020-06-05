@@ -14,6 +14,8 @@ SC_MODULE(DRAM) {
 
   vector<vector<PacketSwitch::AccumType>> weights;
   vector<vector<PacketSwitch::AccumType>> activations;
+  vector<vector<PacketSwitch::AccumType>> result;
+
 
   PacketSwitch::ID_type id;
 
@@ -37,62 +39,101 @@ SC_MODULE(DRAM) {
     // Wait for initial reset.
     wait(20.0, SC_NS);
 
-    // send in weights then data
-    int M = weights.size(); // 8 when tile_sz = 2
-    int K = weights[0].size(); // 8 when tile_sz = 2
-    int N = activations[0].size(); // 16 when tile_sz = 2 
 
-    // for(int b_m = 0; b_m < M; b_m++) {
-    //   for(int b_ = 0; b_m < M; b_m++) {
+    int M = weights.size(); // Should be a multiple of 4*tile_sz
+    int K = weights[0].size(); // Should be a multiple of 4* tile_sz
+    int N = activations[0].size(); // Should be a multiple of 8*tile_sz
 
-    // TODO : run of 3 blocks for now, change to full matrices
-    for(int b = 0; b < 3; b++) {
 
-      // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
-      printf("Sending weights from DRAM to SRAM \n");
-      for (int m = 0; m < M/tile_sz; m++) { // row
-        for (int k = 0; k < K/tile_sz; k++) { // col
+    // Send weights to SA, loop over each weight tile and send it to corresponding MB
+    printf("Sending weights from DRAM to SRAM \n");
+    for (int n1 = 0; n1 < (N / Dx); n1++) {
+      for (int m_prime = 0; m_prime < (M / Wy); m_prime++) {
 
-          for (int i = 0; i < tile_sz; i++) {
-            for (int j = 0; j < tile_sz; j++) {
-              p_out1.data[i][j] = weights[m * tile_sz + i][k * tile_sz + j];
-            }
-          }
-          wait(50);
+        int m1;
 
-          // p_out1.src = 999; // sram src
-          // p_out1.srcPod = 0; // sram default src pod
-          // p_out1.dst = k;
-          // p_out1.dstPod = m;
-          p_out1.d_type = 0;
-          packet_out.Push(p_out1);   
-          wait(100);
+        if((n1 % 2) == 0) {
+          m1 = m_prime;
+        } else {
+          m1 = (M / (Wy)) - m_prime - 1;
         }
-      }
 
-      printf("Sending activations from DRAM to SRAM \n");
-      for (int n = 0; n < N/tile_sz; n++) {
-        for (int k = 0; k < K/tile_sz; k++) {
-       
-          for (int i = 0; i < tile_sz; i++) {
-            for (int j = 0; j < tile_sz; j++) {
-              p_out2.data[i][j] = activations[k * tile_sz + i][n * tile_sz + j];
+        for (int k_prime = 0; k_prime < (K / Wz); k_prime++) {
+
+          int k1;
+
+          if ((m_prime % 2) == 0) {
+            k1 = k_prime;
+          } else {
+            k1 = (K / (Wz)) - k_prime - 1;
+          }
+
+          cout <<  n1 << " " << m1 << " " << k1 << "\n";
+
+          // Slice weights to be w[m*Wy:(m+1)Wy, k*Wz:(k+1)Wz]
+          
+          vector<vector<PacketSwitch::AccumType>> weight(Wy, vector<PacketSwitch::AccumType>(Wz)); 
+          for (int i = 0; i < Wy; i++) {
+            for (int j = 0; j < Wz; j++) {
+              weight[i][j] = weights[m1 * Wy + i][k1 * Wz + j];
             }
           }
 
           wait(50);
 
-          // p_out2.src = 999;
-          // p_out2.srcPod = 0;
-          // p_out2.dst = k;
-          // p_out2.dstPod = m;
-          p_out2.d_type = 1;
-          packet_out.Push(p_out2);
-          wait(100);
+          // Slice data to be d[k*Dz: (k+1)Dz, n*Dx: (n+1)*Dx]
+          vector<vector<PacketSwitch::AccumType>> activation(Dz, vector<PacketSwitch::AccumType>(Dx)); 
+          for (int i = 0; i < Dz; i++) {
+            for (int j = 0; j < Dx; j++) {
+              activation[i][j] = activations[k1 * Dz + i][n1 * Dx + j];
+            }
+          }
+
+          wait(50);
+
+          // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
+          printf("Sending weights from DRAM to SRAM \n");
+          for (int m = 0; m < Wy/tile_sz; m++) { // row
+            for (int k = 0; k < Wz/tile_sz; k++) { // col
+
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  p_out1.data[i][j] = weight[m * tile_sz + i][k * tile_sz + j];
+                }
+              }
+              wait(50);
+              p_out1.d_type = 0;
+              packet_out.Push(p_out1);   
+              wait(100);
+            }
+          }
+
+          printf("Sending activations from DRAM to SRAM \n");
+          for (int n = 0; n < Dx/tile_sz; n++) {
+            for (int k = 0; k < Wz/tile_sz; k++) {
+           
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  p_out2.data[i][j] = activation[k * tile_sz + i][n * tile_sz + j];
+                }
+              }
+
+              wait(50);
+              p_out2.d_type = 1;
+              packet_out.Push(p_out2);
+              wait(100);
+            }
+          }
+        
+
+
+
         }
       }
     }
+
   }
+
 
   void receive_results() {
 
@@ -117,6 +158,43 @@ SC_MODULE(DRAM) {
       wait(5);
     }
   }
+
+
+  // void receive_results() {
+
+  //   PacketSwitch::Packet   p_in;
+  //   packet_in.Reset();
+  //   wait(20.0, SC_NS);
+
+  //   int row_tile = 0;
+  //   int col_tile = 0;
+
+  //   // Store the completed sum in the final result [m*Wy:(m+1)*Dy, n*Dx: (n+1)Dx]
+  //   while(1) {
+
+  //     if(packet_in.PopNB(p_in)) {
+
+  //       for (int i = 0; i < tile_sz; i++) {
+  //         for (int j = 0; j < tile_sz; j++) {
+  //           result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
+  //         }
+  //       }
+
+  //       col_tile++;
+  //       if(col_tile == (Dx / tile_sz)) {
+  //         col_tile = 0;
+  //         row_tile++;
+  //       }
+
+  //       if(row_tile == (Dy / tile_sz)) {
+  //         PrintMat(result); 
+  //       }
+  //     }
+
+  //     wait(5);
+  //   }
+  // }
+
 
 
 };
