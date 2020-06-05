@@ -9,16 +9,16 @@
 #include <ArbitratedScratchpad.h>
 #include <ArbitratedScratchpad/ArbitratedScratchpadTypes.h>
 
-const static int alpha = 2;
-const static int tile_sz = 2; // change to 8 later
-const static int NUM_PODS = 2*2;
-const static int POD_SZ = 2*2;
-const static int NUM_CB = 1;
-const static int NUM_SRAM = 1;
-
 
 // Define P, each pod has (P,P) element pairs
 const static int P = 2;
+const static int alpha = 2;
+const static int tile_sz = 2; // change to 8 later
+const static int NUM_PODS = P*P;
+const static int POD_SZ = P*P;
+const static int NUM_CB = 1;
+const static int NUM_SRAM = 1;
+
 const static int Dx = alpha*P*P*tile_sz; // Size of data block in N dimension i.e alpha*Wz
 const static int Dz = P*P*tile_sz; // Size of data block in the k dimension
 const static int Wz = P*P*tile_sz; // Size of block in the K dimension, same as Dz
