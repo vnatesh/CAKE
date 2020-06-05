@@ -32,6 +32,8 @@ SC_MODULE(SA)
 
         bool is_weight_in = 0 ;
         bool is_act_in = 0;
+        int out_cnt = 0;
+
 
         PacketSwitch::Packet packet_reg;
         vector<vector<PacketSwitch::AccumType>> weight_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
@@ -88,13 +90,17 @@ SC_MODULE(SA)
                 // // TODO :  currently, we only send a single round of weights to the SAs i.e. a single
                 // // block in the schedule. Keep weight in for now, later change to reload weights by 
                 // // parsing packet for 'sa_reload_weight' instruction 
-
-                // is_weight_in = 0;
                 is_act_in = 0;
-                // is_done = 1;
+                out_cnt++;
             }
 
-            wait(1);
+            // check if SA has sent alpha tiles. If so, the next block is ready so allow for reloading of weights
+            if(out_cnt == (alpha * POD_SZ)) {
+                is_weight_in = 0;
+                out_cnt = 0;
+            }
+
+            wait();
         }
     }
 };
