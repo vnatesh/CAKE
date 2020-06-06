@@ -71,7 +71,6 @@ SC_MODULE(DRAM) {
           cout <<  n1 << " " << m1 << " " << k1 << "\n";
 
           // Slice weights to be w[m*Wy:(m+1)Wy, k*Wz:(k+1)Wz]
-          
           vector<vector<PacketSwitch::AccumType>> weight(Wy, vector<PacketSwitch::AccumType>(Wz)); 
           for (int i = 0; i < Wy; i++) {
             for (int j = 0; j < Wz; j++) {
@@ -124,15 +123,11 @@ SC_MODULE(DRAM) {
               wait(100);
             }
           }
-        
-
-
-
         }
       }
     }
-
   }
+
 
 
   void receive_results() {
@@ -141,59 +136,75 @@ SC_MODULE(DRAM) {
     packet_in.Reset();
     wait(20.0, SC_NS);
 
+    // bool done = false;
+    int n = 0;
+    int m_prime = 0;
+    int m;
+    int row_tile = 0;
+    int col_tile = 0;
+
+    int M = weights.size(); // Should be a multiple of 4*tile_sz
+    int N = activations[0].size(); // Should be a multiple of 8*tile_sz
+
+    int pod_id;
+    int received_tiles[NUM_PODS] = {0};
+    int tiles_per_block = (Wy/tile_sz) * (Dx/tile_sz);
+    int received_sum;
+
+    // Store the completed sum in the final result [m*Wy:(m+1)*Wy, n*Dx: (n+1)Dx]
     while(1) {
 
       if(packet_in.PopNB(p_in)) {
 
-        printf("DRAM RESULT\n");
+        if((n % 2) == 0) {
+          m = m_prime;
+        } else {
+          m = (M / (Wy)) - m_prime - 1;
+        }
+    
+        pod_id = p_in.srcPod; //TODO change to be packet value
+        row_tile = pod_id;
+        col_tile = received_tiles[pod_id];
+
+        cout << n << " " << m << " Block position: " << row_tile << " " << col_tile <<"\n";
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
-            printf("%d ", p_in.data[i][j]);
+            result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
           }
-          printf("\n");
         }
-        printf("\n");
+
+        received_tiles[pod_id]++;
+
+        // Check if block is completed, using sum method since checking if each is equal would be more complicated
+        received_sum = 0;
+        for (int i = 0; i < NUM_PODS; i++) {
+          received_sum += received_tiles[i]; 
+        }
+
+        // Update m and n indices
+        if (received_sum == tiles_per_block) {
+          // Reset tiles received
+          for (int i = 0; i < NUM_PODS; i++) {
+            received_tiles[i] = 0; 
+          }
+          // Increment M and handle adjustments for N
+          m_prime++;
+          if (m_prime == (M/(Wy))) {
+            m_prime = 0;
+            if (n < (N/ Dx) - 1){
+              n++;
+            } else {
+              PrintMat(result); 
+              // done = true;
+            }
+        
+          }
+        }
       }
 
       wait(5);
     }
   }
-
-
-  // void receive_results() {
-
-  //   PacketSwitch::Packet   p_in;
-  //   packet_in.Reset();
-  //   wait(20.0, SC_NS);
-
-  //   int row_tile = 0;
-  //   int col_tile = 0;
-
-  //   // Store the completed sum in the final result [m*Wy:(m+1)*Dy, n*Dx: (n+1)Dx]
-  //   while(1) {
-
-  //     if(packet_in.PopNB(p_in)) {
-
-  //       for (int i = 0; i < tile_sz; i++) {
-  //         for (int j = 0; j < tile_sz; j++) {
-  //           result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
-  //         }
-  //       }
-
-  //       col_tile++;
-  //       if(col_tile == (Dx / tile_sz)) {
-  //         col_tile = 0;
-  //         row_tile++;
-  //       }
-
-  //       if(row_tile == (Dy / tile_sz)) {
-  //         PrintMat(result); 
-  //       }
-  //     }
-
-  //     wait(5);
-  //   }
-  // }
 
 
 
