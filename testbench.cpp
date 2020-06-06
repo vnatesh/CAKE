@@ -148,7 +148,7 @@ SC_MODULE (testbench) {
     wait(1, SC_NS);
     rst = 1;
     wait(1000000,SC_NS);
-    cout << "@" << sc_time_stamp() << " Stop " << endl ;
+    cout << "@" << sc_time_stamp() << " Stop " << "\n" ;
     sc_stop();
   }
 };
@@ -208,12 +208,12 @@ int sc_main(int argc, char *argv[]) {
   for(int i = 0; i < M; i++) {
     for(int j = 0; j < N; j++) {
       if(my_testbench.dram.result[i][j] != ref_out[i][j]) {
-        cout << "MMM Result Incorrect! :(" << endl;
+        cout << "MMM Result Incorrect! :(" << "\n";
       }
     }
   }
 
-  cout << "MMM Result Correct!" << endl;
+  cout << "MMM Result Correct!" << "\n";
   return 0;
 };
 

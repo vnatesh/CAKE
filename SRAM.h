@@ -78,7 +78,7 @@ SC_MODULE(SRAM) {
 
           if(m_cnt == M / tile_sz) {
 
-            printf("Sending weight block from SRAM to Maestro \n");
+            if(DEBUG) cout << "Sending weight block from SRAM to Maestro" << "\n";
             for (int m = 0; m < M/tile_sz; m++) { // row
               for (int k = 0; k < K/tile_sz; k++) { // col
 
@@ -124,7 +124,7 @@ SC_MODULE(SRAM) {
           if(n_cnt ==  N / tile_sz) {
 
             // TODO : this is a triple loop due to the broadcast. Change packet header to include BCAST instruction
-            printf("Sending activation block from SRAM to Maestro \n");
+            if(DEBUG) cout << "Sending activation block from SRAM to Maestro" << "\n";
             for (int n = 0; n < N/tile_sz; n++){
               for (int k = 0; k < K/tile_sz; k++) {
                 for (int m = 0; m < M/ tile_sz; m++) {
@@ -180,5 +180,6 @@ SC_MODULE(SRAM) {
 
 
 #endif
+
 
 

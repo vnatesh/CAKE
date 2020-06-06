@@ -40,7 +40,8 @@ SC_MODULE(CB)
     while(1) {
       if(packet_in.PopNB(p_in)) {
         if(p_in.dst == id && p_in.d_type == 2) { // dst is cb and packet is result type
-          printf("Partial result received at CB %d\n", p_in.dstPod);
+          
+          if(DEBUG) cout << "Partial result received at CB " << p_in.dstPod << "\n";
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
               cb_mat[tile_cnt][i][j] += p_in.data[i][j];
@@ -79,7 +80,8 @@ SC_MODULE(CB)
           p_out.dst = 999; // destination is SRAM
           p_out.dstPod = 0; // destination pod is default 0 for SRAM
           p_out.d_type = 2; // result type                    
-          printf("CB %d sending tile %d to SRAM\n", p_out.srcPod, t);
+          
+          if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
           packet_out.Push(p_out);
           wait(1);
         }

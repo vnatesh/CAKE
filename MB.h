@@ -46,7 +46,8 @@ SC_MODULE(MB)
                             weight_reg[i][j] = packet_reg.data[i][j];
                         }
                     }
-                    printf("received weight at MB %d Pod %d from SRAM\n", packet_reg.dstPod, id);
+
+                    if(DEBUG) cout <<  "received weight at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
                     packet_reg.src = id;
                     packet_reg.srcPod = packet_reg.dstPod; // send to SA in the same pod
                     packet_reg.dst = id + POD_SZ;
@@ -60,7 +61,7 @@ SC_MODULE(MB)
                             act_reg[i][j] = packet_reg.data[i][j];
                         }
                     }
-                    printf("received activation at MB %d Pod %d from SRAM\n", packet_reg.dstPod, id);
+                    if(DEBUG) cout <<  "received activation at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
                     packet_reg.src = id;
                     packet_reg.srcPod = packet_reg.dstPod;
                     packet_reg.dst = id + POD_SZ;

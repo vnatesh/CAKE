@@ -46,7 +46,7 @@ SC_MODULE(DRAM) {
 
 
     // Send weights to SA, loop over each weight tile and send it to corresponding MB
-    printf("Sending weights from DRAM to SRAM \n");
+    if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
     for (int n1 = 0; n1 < (N / Dx); n1++) {
       for (int m_prime = 0; m_prime < (M / Wy); m_prime++) {
 
@@ -68,7 +68,7 @@ SC_MODULE(DRAM) {
             k1 = (K / (Wz)) - k_prime - 1;
           }
 
-          cout <<  n1 << " " << m1 << " " << k1 << "\n";
+          if(DEBUG) cout <<  n1 << " " << m1 << " " << k1 << "\n";
 
           // Slice weights to be w[m*Wy:(m+1)Wy, k*Wz:(k+1)Wz]
           vector<vector<PacketSwitch::AccumType>> weight(Wy, vector<PacketSwitch::AccumType>(Wz)); 
@@ -91,7 +91,7 @@ SC_MODULE(DRAM) {
           wait(50);
 
           // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
-          printf("Sending weights from DRAM to SRAM \n");
+          if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
           for (int m = 0; m < Wy/tile_sz; m++) { // row
             for (int k = 0; k < Wz/tile_sz; k++) { // col
 
@@ -107,7 +107,7 @@ SC_MODULE(DRAM) {
             }
           }
 
-          printf("Sending activations from DRAM to SRAM \n");
+          if(DEBUG) cout << "Sending activations from DRAM to SRAM \n";
           for (int n = 0; n < Dx/tile_sz; n++) {
             for (int k = 0; k < Wz/tile_sz; k++) {
            
@@ -166,7 +166,8 @@ SC_MODULE(DRAM) {
         row_tile = pod_id;
         col_tile = received_tiles[pod_id];
 
-        cout << n << " " << m << " Block position: " << row_tile << " " << col_tile <<"\n";
+        if(DEBUG) cout << n << " " << m << " Block position: " << row_tile << " " << col_tile <<"\n";
+        
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
             result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
@@ -194,6 +195,7 @@ SC_MODULE(DRAM) {
             if (n < (N/ Dx) - 1){
               n++;
             } else {
+              cout << "\n\nMAESTRO MMM RESULT\n\n";
               PrintMat(result); 
               // done = true;
             }
