@@ -38,7 +38,9 @@ template<typename T> vector<vector<T>> GetMat(int rows, int cols) {
 
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
-      mat[i][j] = nvhls::get_rand<8>(); // 8 bit numbers for weight and activation
+      mat[i][j] = (nvhls::get_rand<8>()) % 4; // 8 bit numbers for weight and activation
+
+
     }
   }
 
@@ -166,9 +168,6 @@ int sc_main(int argc, char *argv[]) {
   //                           vector<vector<PacketSwitch::AccumType>>(tile_sz, 
   //                                   vector<PacketSwitch::AccumType>(tile_sz, 0))));
 
-
-  // vector<vector<PacketSwitch::AccumType>> tmp;
-
   for(int j = 0; j < NUM_PODS; j++) {
     for(int i = 0; i < POD_SZ; i++) {
       my_testbench.maestro.mb[j][i]->id = i;
@@ -180,23 +179,10 @@ int sc_main(int argc, char *argv[]) {
                                 vector<vector<PacketSwitch::AccumType>>(tile_sz, 
                                         vector<PacketSwitch::AccumType>(tile_sz, 0)));
     my_testbench.maestro.cb[j]->cb_mat = cbmat;
-    // for(int x = 0; x < alpha * POD_SZ; x++) {
-    //   tmp = GetMat<PacketSwitch::AccumType>(tile_sz, tile_sz);
-    //   for(int p = 0; p < tile_sz; p++) {
-    //     for(int q = 0; q < tile_sz; q++) {
-    //       tmp[p][q] = 0;
-    //     }
-    //   }
-
-    //   my_testbench.maestro.cb[j]->cb_mat.push_back(tmp);
-    // }
   }
 
-  // int M = Wy;
-  // int K = Wz;
-  // int N = Dx;
-
-  // 3x3x3 Block schedule
+  // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
+  // actually weight/data, which changes every DNN layer
   int M = Wy*3;
   int K = Wz*3;
   int N = Dx*3;
@@ -204,11 +190,10 @@ int sc_main(int argc, char *argv[]) {
   // Create weight and data matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
-
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
                                                                 vector<PacketSwitch::AccumType>(N, 0));
+  
   my_testbench.dram.result = result;
-
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
@@ -218,9 +203,17 @@ int sc_main(int argc, char *argv[]) {
   PrintMat(my_testbench.dram.activations);
   cout << "Reference Output: \n";
   PrintMat(ref_out);
-
   sc_start();
-  cout << "CMODEL PASS" << endl;
+
+  for(int i = 0; i < M; i++) {
+    for(int j = 0; j < N; j++) {
+      if(my_testbench.dram.result[i][j] != ref_out[i][j]) {
+        cout << "MMM Result Incorrect! :(" << endl;
+      }
+    }
+  }
+
+  cout << "MMM Result Correct!" << endl;
   return 0;
 };
 
