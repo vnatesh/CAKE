@@ -35,7 +35,7 @@ SC_MODULE(CB)
     int accum_cnt = 0;
     int tile_cnt = 0;
     int K_cnt = 0;
-    int K = Wz * 3; // TODO : need a way of letting CB know the K dim
+    int K = Wz * 3 * 16; // TODO : need a way of letting CB know the K dim
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
@@ -77,7 +77,7 @@ SC_MODULE(CB)
           wait(5);
           p_out.src = id;
           p_out.srcPod = p_in.dstPod;
-          p_out.dst = 999; // destination is SRAM
+          p_out.dst = INT_MAX; // destination is SRAM
           p_out.dstPod = 0; // destination pod is default 0 for SRAM
           p_out.d_type = 2; // result type                    
           

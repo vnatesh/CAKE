@@ -159,7 +159,7 @@ SC_MODULE(PacketSwitch)
                 d = p_in2.dst;
                 e = p_in2.dstPod;
                 // out_ports[e][d].Push(p_in2);
-                if(d == 999 && e == 0) {
+                if(d == INT_MAX && e == 0) {
                   maestro_out_port.Push(p_in2); // This  sends value to Pod module, 
                                                   // which then intercpnnects directly to SRAM
                                                   // see pod_out_port binding.

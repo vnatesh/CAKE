@@ -90,7 +90,7 @@ SC_MODULE(SRAM) {
 
                 wait(5);
 
-                p_out1.src = 999; // sram src
+                p_out1.src = INT_MAX; // sram src
                 p_out1.srcPod = 0; // sram default src pod
                 p_out1.dst = k;
                 p_out1.dstPod = m;
@@ -137,7 +137,7 @@ SC_MODULE(SRAM) {
 
                   wait(5);
 
-                  p_out2.src = 999;
+                  p_out2.src = INT_MAX;
                   p_out2.srcPod = 0;
                   p_out2.dst = k;
                   p_out2.dstPod = m;

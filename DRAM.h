@@ -197,7 +197,6 @@ SC_MODULE(DRAM) {
             } else {
               cout << "\n\nMAESTRO MMM RESULT\n\n";
               PrintMat(result); 
-              // done = true;
             }
         
           }

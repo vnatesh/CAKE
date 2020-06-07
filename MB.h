@@ -40,7 +40,7 @@ SC_MODULE(MB)
         #pragma hls_pipeline_init_interval 1
         while(1) {
             if (packet_in.PopNB(packet_reg)) {
-                if(packet_reg.src == 999 && packet_reg.d_type == 0) { // weights
+                if(packet_reg.src == INT_MAX && packet_reg.d_type == 0) { // weights
                     for(int i = 0; i < tile_sz; i++) {
                         for (int j = 0; j < tile_sz; j++) {
                             weight_reg[i][j] = packet_reg.data[i][j];
@@ -55,7 +55,7 @@ SC_MODULE(MB)
                     packet_out.Push(packet_reg);                  
                 }
 
-                else if(packet_reg.src == 999 && packet_reg.d_type == 1) { // activation
+                else if(packet_reg.src == INT_MAX && packet_reg.d_type == 1) { // activation
                     for(int i = 0; i < tile_sz; i++) {
                         for (int j = 0; j < tile_sz; j++) {
                             act_reg[i][j] = packet_reg.data[i][j];
