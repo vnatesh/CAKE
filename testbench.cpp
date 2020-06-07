@@ -183,15 +183,15 @@ int sc_main(int argc, char *argv[]) {
 
   // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
   // actually weight/data, which changes every DNN layer
-  int M = Wy*3;
-  int K = Wz*3;
-  int N = Dx*3;
-
+  int M = Wy*3*16;
+  int K = Wz*3*16;
+  int N = Dx*3*16;
   // Create weight and data matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
                                                                 vector<PacketSwitch::AccumType>(N, 0));
+  printf("HEYYYYY\n");
   
   my_testbench.dram.result = result;
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
@@ -213,7 +213,7 @@ int sc_main(int argc, char *argv[]) {
     }
   }
 
-  cout << "MMM Result Correct!" << "\n";
+  cout << "\nMMM Result Correct!\n";
   return 0;
 };
 
