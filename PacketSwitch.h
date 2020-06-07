@@ -9,7 +9,9 @@
 #include <ArbitratedScratchpad.h>
 #include <ArbitratedScratchpad/ArbitratedScratchpadTypes.h>
 
-const static bool DEBUG = true;
+#include<bits/stdc++.h> 
+
+const static bool DEBUG = false;
 
 // Define P, each pod has (P,P) element pairs
 const static int P = 2;
