@@ -40,9 +40,9 @@ SC_MODULE(DRAM) {
     wait(20.0, SC_NS);
 
 
-    int M = weights.size(); // Should be a multiple of 4*tile_sz
-    int K = weights[0].size(); // Should be a multiple of 4* tile_sz
-    int N = activations[0].size(); // Should be a multiple of 8*tile_sz
+    int M = weights.size(); // Should be a multiple of POD_SZ*tile_sz
+    int K = weights[0].size(); // Should be a multiple of POD_SZ*tile_sz
+    int N = activations[0].size(); // Should be a multiple of alpha*POD_SZ*tile_sz
 
 
     // Send weights to SA, loop over each weight tile and send it to corresponding MB
@@ -78,7 +78,7 @@ SC_MODULE(DRAM) {
             }
           }
 
-          wait(50);
+          wait(10);
 
           // Slice data to be d[k*Dz: (k+1)Dz, n*Dx: (n+1)*Dx]
           vector<vector<PacketSwitch::AccumType>> activation(Dz, vector<PacketSwitch::AccumType>(Dx)); 
@@ -88,7 +88,7 @@ SC_MODULE(DRAM) {
             }
           }
 
-          wait(50);
+          wait(10);
 
           // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
           if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
@@ -100,10 +100,10 @@ SC_MODULE(DRAM) {
                   p_out1.data[i][j] = weight[m * tile_sz + i][k * tile_sz + j];
                 }
               }
-              wait(50);
+              wait(10);
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
-              wait(100);
+              wait(20);
             }
           }
 
@@ -117,10 +117,10 @@ SC_MODULE(DRAM) {
                 }
               }
 
-              wait(50);
+              wait(10);
               p_out2.d_type = 1;
               packet_out.Push(p_out2);
-              wait(100);
+              wait(20);
             }
           }
         }
@@ -136,15 +136,14 @@ SC_MODULE(DRAM) {
     packet_in.Reset();
     wait(20.0, SC_NS);
 
-    // bool done = false;
     int n = 0;
     int m_prime = 0;
     int m;
     int row_tile = 0;
     int col_tile = 0;
 
-    int M = weights.size(); // Should be a multiple of 4*tile_sz
-    int N = activations[0].size(); // Should be a multiple of 8*tile_sz
+    int M = weights.size(); // Should be a multiple of POD_SZ*tile_sz
+    int N = activations[0].size(); // Should be a multiple of alpha*POD_SZ*tile_sz
 
     int pod_id;
     int received_tiles[NUM_PODS] = {0};
@@ -162,7 +161,7 @@ SC_MODULE(DRAM) {
           m = (M / (Wy)) - m_prime - 1;
         }
     
-        pod_id = p_in.srcPod; //TODO change to be packet value
+        pod_id = p_in.srcPod; 
         row_tile = pod_id;
         col_tile = received_tiles[pod_id];
 
@@ -190,15 +189,15 @@ SC_MODULE(DRAM) {
           }
           // Increment M and handle adjustments for N
           m_prime++;
-          if (m_prime == (M/(Wy))) {
+          if (m_prime == (M / Wy)) {
             m_prime = 0;
-            if (n < (N/ Dx) - 1){
+            if (n < (N / Dx) - 1){
               n++;
             } else {
               cout << "\n\nMAESTRO MMM RESULT\n\n";
               PrintMat(result); 
+              sc_stop();
             }
-        
           }
         }
       }
