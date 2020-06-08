@@ -39,8 +39,6 @@ template<typename T> vector<vector<T>> GetMat(int rows, int cols) {
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
       mat[i][j] = (nvhls::get_rand<8>()) % 4; // 8 bit numbers for weight and activation
-
-
     }
   }
 
@@ -149,7 +147,6 @@ SC_MODULE (testbench) {
     rst = 1;
     wait(1000000,SC_NS);
     cout << "@" << sc_time_stamp() << " Stop " << "\n" ;
-    sc_stop();
   }
 };
 
@@ -183,37 +180,50 @@ int sc_main(int argc, char *argv[]) {
 
   // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
   // actually weight/data, which changes every DNN layer
-  int M = Wy*3*16;
-  int K = Wz*3*16;
-  int N = Dx*3*16;
+  // int M = Wy*4;
+  // int K = Wz*4;
+  // int N = Dx*4;
+
+  int M = Wy;
+  int K = Wz;
+  int N = Dx;
+
+  cout << M << " " << K << " " << N << endl;
   // Create weight and data matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
                                                                 vector<PacketSwitch::AccumType>(N, 0));
-  printf("HEYYYYY\n");
   
   my_testbench.dram.result = result;
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
-  cout << "Weight matrix: \n";
-  PrintMat(my_testbench.dram.weights);
-  cout << "Activation matrix: \n";
-  PrintMat(my_testbench.dram.activations);
-  cout << "Reference Output: \n";
-  PrintMat(ref_out);
+  // if(DEBUG) {
+    cout << "Weight matrix: \n";
+    PrintMat(my_testbench.dram.weights);
+    cout << "Activation matrix: \n";
+    PrintMat(my_testbench.dram.activations);
+    cout << "Reference Output: \n";
+    PrintMat(ref_out);
+  // }
+
   sc_start();
 
+  bool CORRECT = 1;
   for(int i = 0; i < M; i++) {
     for(int j = 0; j < N; j++) {
       if(my_testbench.dram.result[i][j] != ref_out[i][j]) {
-        cout << "MMM Result Incorrect! :(" << "\n";
+        CORRECT = 0;
       }
     }
   }
 
-  cout << "\nMMM Result Correct!\n";
+  if(CORRECT) 
+    cout << "\nMMM Result Correct!\n\n";
+  else
+    cout << "\nMMM Result Incorrect! :( \n\n";
+
   return 0;
 };
 
