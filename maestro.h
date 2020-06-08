@@ -39,28 +39,44 @@ SC_MODULE(Maestro) {
     }
 
 
-    SC_THREAD(run);
+    SC_THREAD(send_packet);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+    SC_THREAD(receive_packet);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
   }
 
 
-  void run() {
+  void send_packet() {
 
     maestro_sram_in.Reset();
-    maestro_sram_out.Reset();
     packet_out.Reset();
-    packet_in.Reset();
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in1;
-    PacketSwitch::Packet p_in2;
 
     while(1) {
       if(maestro_sram_in.PopNB(p_in1)) {
         packet_out.Push(p_in1);
       }
 
+      wait();            
+    }
+  }
+
+
+  void receive_packet() {
+
+    maestro_sram_out.Reset();
+    packet_in.Reset();
+    wait(20.0, SC_NS);
+
+    PacketSwitch::Packet p_in2;
+
+    while(1) {
       if(packet_in.PopNB(p_in2)) {
         maestro_sram_out.Push(p_in2);
       } 
@@ -68,6 +84,7 @@ SC_MODULE(Maestro) {
       wait();            
     }
   }
+
 
 };
 
