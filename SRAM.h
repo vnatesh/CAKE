@@ -115,8 +115,8 @@ SC_MODULE(SRAM) {
             }
           }
 
-          // wait(1);
-          wait(5);
+          wait(1);
+          // wait(5);
           k_cnt++;
           if(k_cnt ==  K / tile_sz) {
             k_cnt = 0;
@@ -137,8 +137,8 @@ SC_MODULE(SRAM) {
                     }
                   }
 
-                  // wait(1);
-                  wait(5);
+                  wait(1);
+                  // wait(5);
                   p_out2.src = INT_MAX;
                   p_out2.srcPod = 0;
                   p_out2.dst = k;
@@ -146,8 +146,8 @@ SC_MODULE(SRAM) {
                   p_out2.d_type = 1;
                   packet_out.Push(p_out2);
 
-                  // wait(2);
-                  wait(10);
+                  wait(2);
+                  // wait(10);
                 }
               }
             }
