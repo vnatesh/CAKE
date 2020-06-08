@@ -68,6 +68,7 @@ SC_MODULE(SRAM) {
             }
           }
 
+          // wait();
           wait(5);
 
           k_cnt++;
@@ -88,8 +89,8 @@ SC_MODULE(SRAM) {
                   }
                 }
 
-                wait(5);
-
+                wait(1);
+                // wait(5);
                 p_out1.src = INT_MAX; // sram src
                 p_out1.srcPod = 0; // sram default src pod
                 p_out1.dst = k;
@@ -97,7 +98,8 @@ SC_MODULE(SRAM) {
                 p_out1.d_type = 0;
                 packet_out.Push(p_out1); 
 
-                wait(10);
+                wait(2);
+                // wait(10);
               }
             }
 
@@ -113,8 +115,8 @@ SC_MODULE(SRAM) {
             }
           }
 
+          // wait(1);
           wait(5);
-
           k_cnt++;
           if(k_cnt ==  K / tile_sz) {
             k_cnt = 0;
@@ -135,8 +137,8 @@ SC_MODULE(SRAM) {
                     }
                   }
 
+                  // wait(1);
                   wait(5);
-
                   p_out2.src = INT_MAX;
                   p_out2.srcPod = 0;
                   p_out2.dst = k;
@@ -144,6 +146,7 @@ SC_MODULE(SRAM) {
                   p_out2.d_type = 1;
                   packet_out.Push(p_out2);
 
+                  // wait(2);
                   wait(10);
                 }
               }
@@ -166,6 +169,7 @@ SC_MODULE(SRAM) {
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in2;
+    
     while(1) {
       if(packet_in.PopNB(p_in2)) {
         sram_dram_out.Push(p_in2);
