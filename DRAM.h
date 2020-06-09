@@ -4,6 +4,7 @@
 #include "PacketSwitch.h"
 
 
+
 SC_MODULE(DRAM) {
 
   Connections::In<PacketSwitch::Packet> packet_in;
@@ -196,7 +197,7 @@ SC_MODULE(DRAM) {
             } else {
               cout << "\n\nMAESTRO MMM RESULT\n\n";
               PrintMat(result); 
-              sc_stop();
+              sc_stop(); // STOP the stimulation here
             }
           }
         }
