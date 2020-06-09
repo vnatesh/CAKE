@@ -35,7 +35,7 @@ SC_MODULE(CB)
     int accum_cnt = 0;
     int tile_cnt = 0;
     int K_cnt = 0;
-    int K = Wz * 3 * 16; // TODO : need a way of letting CB know the K dim
+    int K = Wz; // TODO : need a way of letting CB know the K dim
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
@@ -52,7 +52,7 @@ SC_MODULE(CB)
         }
       }
 
-      wait(5);
+      wait();
 
       if(accum_cnt == POD_SZ) {
         accum_cnt = 0;
@@ -74,7 +74,7 @@ SC_MODULE(CB)
               cb_mat[t][i][j] = 0; // set cb_mat to 0;
             }
           }
-          wait(5);
+          wait();
           p_out.src = id;
           p_out.srcPod = p_in.dstPod;
           p_out.dst = INT_MAX; // destination is SRAM
@@ -83,7 +83,7 @@ SC_MODULE(CB)
           
           if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
           packet_out.Push(p_out);
-          wait(1);
+          wait();
         }
       
         accum_cnt = 0;
