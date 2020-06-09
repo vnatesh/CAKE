@@ -85,6 +85,7 @@ SC_MODULE(SA)
                 packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
                 packet_reg.dst = 2*POD_SZ; // destination is CB
                 packet_reg.d_type = 2; // result type                    
+
                 if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.srcPod << " sending result to CB\n";
                 packet_out.Push(packet_reg);                
                 is_act_in = 0;
