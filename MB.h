@@ -61,6 +61,7 @@ SC_MODULE(MB)
                             act_reg[i][j] = packet_reg.data[i][j];
                         }
                     }
+                    
                     if(DEBUG) cout <<  "received activation at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
                     packet_reg.src = id;
                     packet_reg.srcPod = packet_reg.dstPod;
@@ -70,7 +71,7 @@ SC_MODULE(MB)
                 }
             }
 
-            wait(1);
+            wait();
         }
     }
 };
