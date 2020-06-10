@@ -35,7 +35,6 @@ SC_MODULE(CB)
     int accum_cnt = 0;
     int tile_cnt = 0;
     int K_cnt = 0;
-    int K = Wz; // TODO : need a way of letting CB know the K dim
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
