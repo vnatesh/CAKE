@@ -178,15 +178,6 @@ int sc_main(int argc, char *argv[]) {
     my_testbench.maestro.cb[j]->cb_mat = cbmat;
   }
 
-  // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
-  // actually weight/data, which changes every DNN layer
-  // int M = Wy*4;
-  // int K = Wz*4;
-  // int N = Dx*4;
-
-  int M = Wy;
-  int K = Wz;
-  int N = Dx;
 
   cout << M << " " << K << " " << N << endl;
   // Create weight and data matrices with random values

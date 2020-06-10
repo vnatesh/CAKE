@@ -50,10 +50,6 @@ SC_MODULE(SRAM) {
     // int K = weight_block[0].size(); // 8 when tile_sz = 2
     // int N = activation_block[0].size(); // 16 when tile_sz = 2 
 
-    int M = Wy;
-    int K = Wz;
-    int N = Dx;
-
     vector<vector<PacketSwitch::AccumType>> weight_block(M, vector<PacketSwitch::AccumType>(K)); 
     vector<vector<PacketSwitch::AccumType>> activation_block(K, vector<PacketSwitch::AccumType>(N)); 
 
@@ -169,7 +165,7 @@ SC_MODULE(SRAM) {
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in2;
-    
+
     while(1) {
       if(packet_in.PopNB(p_in2)) {
         sram_dram_out.Push(p_in2);

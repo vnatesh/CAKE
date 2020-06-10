@@ -41,11 +41,6 @@ SC_MODULE(DRAM) {
     wait(20.0, SC_NS);
 
 
-    int M = weights.size(); // Should be a multiple of POD_SZ*tile_sz
-    int K = weights[0].size(); // Should be a multiple of POD_SZ*tile_sz
-    int N = activations[0].size(); // Should be a multiple of alpha*POD_SZ*tile_sz
-
-
     // Send weights to SA, loop over each weight tile and send it to corresponding MB
     if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
     for (int n1 = 0; n1 < (N / Dx); n1++) {

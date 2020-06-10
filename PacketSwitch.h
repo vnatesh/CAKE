@@ -1,62 +1,9 @@
 #ifndef __PACKETSWITCH_H__
 #define __PACKETSWITCH_H__
 
-#include <systemc.h>
-#include <nvhls_int.h>
-#include <nvhls_connections.h>
-#include <nvhls_vector.h>
-
-#include <ArbitratedScratchpad.h>
-#include <ArbitratedScratchpad/ArbitratedScratchpadTypes.h>
-
-#include<bits/stdc++.h> 
-
-const static bool DEBUG = false;
+#include "arch.h"
 
 
-/*
-
-Metrics:
-I/O (time spent receiving), idle/ waiting and compute time
-
-Fastest to slowest
-Switch,MB and SRAM (both on chip memory), CB, SA (2 *tile_sz cycles), DRAM
-
-notes from 6/8/2020
-Blocking and waiting, hard to know deterministic without running it.
-HT says its deterministic but is a waste of time.
-DRAM may hog the switch, so its not available.
-
-Measure by checking everything going out of SA, know how many computations you have done.
-Put some counters on the sender side, if receiver only receives 90 then you know theres a block
-Now we have to figure out where the counters should go.
-
-HT says make some assumptions to ensure that the program runs.
-
-*/
-
-
-/* examples:
-    P = 2:    2*2 = 4 pods, each pod has 2x2 SAs    (16 SAs)
-    P = 4:    4*4 = 16 pods, each pod has 4x4 SAs   (256 SAs)
-    P = 8:    8*8 = 64  pods, each pod has 8x8 SAs  (4096 SAs)
-*/
-
-// Define P, each pod has (P,P) element pairs
-const static int P = 4;
-const static int alpha = 2;
-const static int tile_sz = 2; // change to 8 later
-const static int NUM_PODS = P*P;
-const static int POD_SZ = P*P;
-const static int NUM_CB = 1;
-const static int NUM_SRAM = 1;
-
-const static int Dx = alpha*P*P*tile_sz; // Size of data block in N dimension i.e alpha*Wz
-const static int Dz = P*P*tile_sz; // Size of data block in the k dimension
-const static int Wz = P*P*tile_sz; // Size of block in the K dimension, same as Dz
-const static int Wy = Wz; // Size of block in the M dimension
-
-// Number of processing elements is Wz* Wy
 
 template<typename T, typename U>
 vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
