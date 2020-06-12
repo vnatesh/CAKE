@@ -17,8 +17,13 @@ SC_MODULE(DRAM) {
   vector<vector<PacketSwitch::AccumType>> activations;
   vector<vector<PacketSwitch::AccumType>> result;
 
-
   PacketSwitch::ID_type id;
+
+  double io_time_send;
+  double io_time_recv;
+  int packet_counter_send;
+  int packet_counter_recv;
+
 
   SC_CTOR(DRAM) {
     SC_THREAD(send_blocks);
@@ -40,7 +45,10 @@ SC_MODULE(DRAM) {
     // Wait for initial reset.
     wait(20.0, SC_NS);
 
+    struct timeval start, end;
 
+
+    gettimeofday (&start, NULL);
     // Send weights to SA, loop over each weight tile and send it to corresponding MB
     if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
     for (int n1 = 0; n1 < (N / Dx); n1++) {
@@ -74,7 +82,8 @@ SC_MODULE(DRAM) {
             }
           }
 
-          wait(10);
+          // wait(10);
+          wait();
 
           // Slice data to be d[k*Dz: (k+1)Dz, n*Dx: (n+1)*Dx]
           vector<vector<PacketSwitch::AccumType>> activation(Dz, vector<PacketSwitch::AccumType>(Dx)); 
@@ -84,7 +93,8 @@ SC_MODULE(DRAM) {
             }
           }
 
-          wait(10);
+          // wait(10);
+          wait();
 
           // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
           if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
@@ -96,10 +106,13 @@ SC_MODULE(DRAM) {
                   p_out1.data[i][j] = weight[m * tile_sz + i][k * tile_sz + j];
                 }
               }
-              wait(10);
+              // wait(10);
+              wait();
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
-              wait(20);
+              // wait(20);
+              wait();
+              packet_counter_send++;
             }
           }
 
@@ -113,15 +126,23 @@ SC_MODULE(DRAM) {
                 }
               }
 
-              wait(10);
+              // wait(10);
+              wait();
               p_out2.d_type = 1;
               packet_out.Push(p_out2);
-              wait(20);
+              // wait(20);
+              wait();
+              packet_counter_send++;
             }
           }
         }
       }
     }
+
+    gettimeofday (&end, NULL);
+    io_time_send += ((((end.tv_sec - start.tv_sec) * 1000000L)
+        + (end.tv_usec - start.tv_usec)) / 1000000.0);
+
   }
 
 
@@ -138,18 +159,20 @@ SC_MODULE(DRAM) {
     int row_tile = 0;
     int col_tile = 0;
 
-    int M = weights.size(); // Should be a multiple of POD_SZ*tile_sz
-    int N = activations[0].size(); // Should be a multiple of alpha*POD_SZ*tile_sz
-
     int pod_id;
     int received_tiles[NUM_PODS] = {0};
     int tiles_per_block = (Wy/tile_sz) * (Dx/tile_sz);
     int received_sum;
 
+    struct timeval start, end;
+
     // Store the completed sum in the final result [m*Wy:(m+1)*Wy, n*Dx: (n+1)Dx]
+    gettimeofday (&start, NULL);
     while(1) {
 
       if(packet_in.PopNB(p_in)) {
+
+        packet_counter_recv++;
 
         if((n % 2) == 0) {
           m = m_prime;
@@ -190,15 +213,26 @@ SC_MODULE(DRAM) {
             if (n < (N / Dx) - 1){
               n++;
             } else {
+
+              gettimeofday (&end, NULL);
+              io_time_recv += ((((end.tv_sec - start.tv_sec) * 1000000L)
+                        + (end.tv_usec - start.tv_usec)) / 1000000.0);
+          
+
               cout << "\n\nMAESTRO MMM RESULT\n\n";
               PrintMat(result); 
+
               sc_stop(); // STOP the stimulation here
             }
           }
         }
+
+
+
       }
 
-      wait(5);
+      // wait(5);
+      wait();
     }
   }
 
