@@ -13,8 +13,15 @@ SC_MODULE(SA)
     // Interface Ports
     Connections::In<PacketSwitch::Packet>   packet_in;
     Connections::Out<PacketSwitch::Packet>  packet_out;
-
     PacketSwitch::ID_type id;
+
+    // perf counters
+    double idle_time = 0;
+    double io_time = 0;
+    double compute_time = 0;
+    int mult_cnt = 0;
+    int wait_cnt = 0;
+
 
     SC_HAS_PROCESS(SA);
     SA(sc_module_name name_) : sc_module(name_) {
@@ -34,17 +41,21 @@ SC_MODULE(SA)
         bool is_act_in = 0;
         int out_cnt = 0;
 
-
         PacketSwitch::Packet packet_reg;
         vector<vector<PacketSwitch::AccumType>> weight_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
         vector<vector<PacketSwitch::AccumType>> act_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
         vector<vector<PacketSwitch::AccumType>> result_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
 
-        // vector<vector<T>> mat(rows, vector<T>(cols)); 
+        // timer for counters
+        sc_time start, end;
 
         #pragma hls_pipeline_init_interval 1
         while(1) {
+
+            start = sc_time_stamp();
+            
             if (packet_in.PopNB(packet_reg)) {
+
                 if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 0) { // weights
                     if(is_weight_in == 0) {
                         for(int i = 0; i < tile_sz; i++) {
@@ -72,22 +83,34 @@ SC_MODULE(SA)
                 }
             }
 
+            end = sc_time_stamp();
+            io_time += (end - start).to_default_time_units();
+
             if(is_weight_in && is_act_in) { // do matmul and send result
-          
+                // track matmul time
+                start = sc_time_stamp();
                 result_reg = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_reg, act_reg); 
+                wait(2*tile_sz); //
                 for(int i = 0; i < tile_sz; i++) {
                     for (int j = 0; j < tile_sz; j++) {                          
                         packet_reg.data[i][j] = result_reg[i][j];
                     }
                 }
+                end = sc_time_stamp();
+                compute_time += (end - start).to_default_time_units();
 
+                mult_cnt++;
+
+                start = sc_time_stamp();
                 packet_reg.src = id;
                 packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
                 packet_reg.dst = 2*POD_SZ; // destination is CB
                 packet_reg.d_type = 2; // result type                    
-
                 if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.srcPod << " sending result to CB\n";
-                packet_out.Push(packet_reg);                
+                packet_out.Push(packet_reg);
+                end = sc_time_stamp();
+                io_time += (end - start).to_default_time_units();
+
                 is_act_in = 0;
                 out_cnt++;
             }
@@ -98,7 +121,26 @@ SC_MODULE(SA)
                 out_cnt = 0;
             }
 
+            // SA is not really 'idle' after its finished multiplying everything. Once its finished sending (N / tile_sz), stop counting time
+            // if(mult_cnt > 0 && mult_cnt < (((M/tile_sz)*(K/tile_sz)*(N/tile_sz)) / ((P*P)*(P*P)))) {
+            //     start = sc_time_stamp();
+            //     wait();
+            //     end = sc_time_stamp();
+            //     idle_time += (end - start).to_default_time_units();
+            //     wait_cnt++;
+            // } else {
+            //     cout << "DONE " << mult_cnt;
+            //     wait();
+            // }
+
+            start = sc_time_stamp();
             wait();
+            end = sc_time_stamp();
+            idle_time += (end - start).to_default_time_units();
+            wait_cnt++;
+
+
+            
         }
     }
 };
