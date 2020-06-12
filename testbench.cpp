@@ -178,6 +178,11 @@ int sc_main(int argc, char *argv[]) {
     my_testbench.maestro.cb[j]->cb_mat = cbmat;
   }
 
+  // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
+  // actually weight/data, which changes every DNN layer
+  // int M = Wy*4;
+  // int K = Wz*4;
+  // int N = Dx*4;
 
   cout << M << " " << K << " " << N << endl;
   // Create weight and data matrices with random values
@@ -214,6 +219,64 @@ int sc_main(int argc, char *argv[]) {
     cout << "\nMMM Result Correct!\n\n";
   else
     cout << "\nMMM Result Incorrect! :( \n\n";
+
+
+  // PERFORMANCE COUNTERS
+  int tput = 0;
+
+  // tput = (double) (((double) my_testbench.dram.packet_counter_send) / 
+  //         ((double) my_testbench.dram.io_time_send));
+  // cout << "\nDRAM send throughput = " << tput << "\n";
+
+  // tput = (double) (((double) my_testbench.dram.packet_counter_recv) / 
+  //         ((double) my_testbench.dram.io_time_recv));
+  // cout << "\nDRAM receive throughput = " << tput << "\n";
+
+  cout << "\nDRAM PERF\n";
+  cout << "Packets sent = " << my_testbench.dram.packet_counter_send << "\n";
+  cout << "IO Time send = " << my_testbench.dram.io_time_send << "\n";
+  cout << "Packets received = " << my_testbench.dram.packet_counter_recv << "\n";
+  cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
+
+
+  cout << "\nSRAM PERF\n";
+  cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
+  cout << "IO Time = " << my_testbench.sram.io_time << "\n";
+  cout << "Idle Time = " << my_testbench.sram.idle_time << "\n\n";
+
+
+  int mult_cnt = 0;
+  for(int j = 0; j < NUM_PODS; j++) {
+    for(int i = 0; i < POD_SZ; i++) {
+      cout << "SA idle time = " << my_testbench.maestro.sa[j][i]->idle_time << "\n";
+      cout << "SA IO time = " << my_testbench.maestro.sa[j][i]->io_time << "\n";
+      cout << "SA compute time = " << my_testbench.maestro.sa[j][i]->compute_time << "\n";
+      cout << "SA Wait cnt = " << my_testbench.maestro.sa[j][i]->wait_cnt << "\n";
+      mult_cnt += my_testbench.maestro.sa[j][i]->mult_cnt;
+    }
+  }
+
+  cout << "\nSA PERF\n";
+  cout << "Tiles Multiplied = " << mult_cnt << "\n";
+  // cout << "IO Time = " << io_time << "\n";
+  // cout << "Idle Time = " << idle_time << "\n";
+  // cout << "Compute Time = " << compute_time << "\n\n";
+
+  int packet_cnt = 0;
+  for(int j = 0; j < NUM_PODS; j++) {
+    // cout << "CB idle time = " << my_testbench.maestro.cb[j]->idle_time << "\n";
+    // cout << "CB IO time = " << my_testbench.maestro.cb[j]->io_time << "\n";
+    // cout << "CB compute time = " << my_testbench.maestro.cb[j]->compute_time << "\n";
+    // cout << "CB Wait cnt = " << my_testbench.maestro.cb[j]->wait_cnt << "\n";
+    packet_cnt += my_testbench.maestro.cb[j]->packet_counter;
+  }
+
+  cout << "\nCB PERF\n";
+  cout << "Result Tiles Sent = " << packet_cnt << "\n";
+  // cout << "IO Time = " << io_time << "\n";
+  // cout << "Idle Time = " << idle_time << "\n";
+  // cout << "Compute Time = " << compute_time << "\n\n";
+
 
   return 0;
 };
