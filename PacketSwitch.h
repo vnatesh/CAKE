@@ -3,8 +3,6 @@
 
 #include "arch.h"
 
-
-
 template<typename T, typename U>
 vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
   // mat_A _N*_M
@@ -55,6 +53,7 @@ SC_MODULE(PacketSwitch)
     typedef NVINT32  AccumType;
     typedef NVINT32  AddrType;
     typedef NVINT8   ID_type;
+    typedef NVUINT1  Bcast;
 
     typedef typename nvhls::nv_scvector<nvhls::nv_scvector <AccumType, tile_sz>, tile_sz> VectorType;
 
@@ -66,8 +65,9 @@ SC_MODULE(PacketSwitch)
         AddrType src;
         AddrType dst;
         ID_type d_type; // weight (0), activation (1), result (2)
-        
-        static const unsigned int width = ID_type::width + 4 * AddrType::width + VectorType::width; // sizeof(int) * N;
+        Bcast bcast;
+
+        static const unsigned int width = ID_type::width + 4 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
 
         template <unsigned int Size>
         void Marshall(Marshaller<Size>& m) {
@@ -77,6 +77,7 @@ SC_MODULE(PacketSwitch)
             m& src;
             m& dst;
             m& d_type;
+            m& bcast;
         }
     };
     
@@ -117,26 +118,48 @@ SC_MODULE(PacketSwitch)
         Packet p_in1;
         Packet p_in2;
 
+
         while (1) {
           // send input from SRAM to maestro
           if(maestro_in_port.PopNB(p_in1)) {
-            d = p_in1.dst;
-            e = p_in1.dstPod;
-            out_ports[e][d].Push(p_in1);
+            // broadcast
+            if(p_in1.bcast) {
+              for (int m1 = 0; m1 < Wy / tile_sz; m1++) {
+                d = p_in1.dst;
+                p_in1.dstPod = m1;
+                p_in1.bcast = 0;
+                out_ports[m1][d].Push(p_in1);
+              }
+            } else {
+              d = p_in1.dst;
+              e = p_in1.dstPod;
+              out_ports[e][d].Push(p_in1);
+            }
+            wait(3);
           }
 
+          // handle inputs from maestro modules
           for (int j = 0; j < NUM_PODS; j++) {
             for (int i = 0; i < (2*POD_SZ+NUM_CB); i++) {
 
               if(in_ports[j][i].PopNB(p_in2)) {
+
                 d = p_in2.dst;
                 e = p_in2.dstPod;
-                // out_ports[e][d].Push(p_in2);
+
                 if(d == INT_MAX && e == 0) {
                   maestro_out_port.Push(p_in2); // This  sends value to maestro top module, 
                                                   // which then interconnects directly to SRAM
                 } else {
                   out_ports[e][d].Push(p_in2);
+
+                  // track how often a packet is sent to the particular systolic array
+                  // if(d >= POD_SZ && d < 2*POD_SZ) {
+                  if(e == P && d == POD_SZ) {
+                    cout << "switch->SA " << sc_time_stamp().to_default_time_units() << "\n";
+                  }
+
+
                 }
               }
             }
