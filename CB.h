@@ -13,7 +13,8 @@ SC_MODULE(CB)
   Connections::In<PacketSwitch::Packet>  packet_in;
   Connections::Out<PacketSwitch::Packet>  packet_out;
 
-  vector<vector<vector<PacketSwitch::AccumType>>> cb_mat; 
+  // vector<vector<vector<PacketSwitch::AccumType>>> cb_mat; 
+  vector<vector<vector<vector<vector<PacketSwitch::AccumType>>>>> cb_mat; 
   PacketSwitch::ID_type id;
 
   double io_time = 0;
@@ -43,6 +44,10 @@ SC_MODULE(CB)
     int accum_cnt = 0;
     int tile_cnt = 0;
     int K_cnt = 0;
+    int K_cnt_sr = 0;
+    int M_cnt_dr = 0;
+    int N_cnt_dr = 0;
+    bool snake_sr = false;
 
     struct timeval start, end;
 
@@ -56,17 +61,16 @@ SC_MODULE(CB)
           if(DEBUG) cout << "Partial result received at CB " << p_in.dstPod << "\n";
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
-              cb_mat[tile_cnt][i][j] += p_in.data[i][j];
+              cb_mat[N_cnt_dr][M_cnt_dr][tile_cnt][i][j] += p_in.data[i][j];
             }
           }
 
           accum_cnt++;
-          wait();
         }
+
         gettimeofday (&end, NULL);
         compute_time += ((((end.tv_sec - start.tv_sec) * 1000000L)
             + (end.tv_usec - start.tv_usec)) / 1000000.0);
-
       }
 
       wait();
@@ -77,44 +81,85 @@ SC_MODULE(CB)
       }
 
       if(tile_cnt == alpha * POD_SZ) {
-        accum_cnt = 0;
+        // accum_cnt = 0;
         tile_cnt = 0;
-        K_cnt++;
+        K_cnt_sr++;
       }
 
-      if(K_cnt == (K / Wz)) {
+      if(K_cnt_sr == (K_dr / K_sr)) {
+        // accum_cnt = 0;
+        // tile_cnt = 0;
+        K_cnt_sr = 0;
+        M_cnt_dr = snake_sr ? M_cnt_dr-1 : M_cnt_dr+1; // if going up in opp dir, then its not ++..should be --
+      }
 
-        tile_cnt = alpha * POD_SZ;
-        for(int t = 0; t < tile_cnt; t++) {
-          gettimeofday (&start, NULL);
-          for (int i = 0; i < tile_sz; i++) {
-             for (int j = 0; j < tile_sz; j++) {
-              p_out.data[i][j] = cb_mat[t][i][j];
-              cb_mat[t][i][j] = 0; // set cb_mat to 0;
-            }
-          }
-          // wait();
-          p_out.src = id;
-          p_out.srcPod = p_in.dstPod;
-          p_out.dst = INT_MAX; // destination is SRAM
-          p_out.dstPod = 0; // destination pod is default 0 for SRAM
-          p_out.d_type = 2; // result type                    
+
+      if((!snake_sr && (M_cnt_dr == (M_dr / M_sr))) || (snake_sr && M_cnt_dr == -1)) {
+        // accum_cnt = 0;
+        // tile_cnt = 0;
+        // K_cnt_sr = 0;
+        M_cnt_dr = snake_sr ? 0 : M_cnt_dr-1; // if going up in opp dir, then its not 0..should be (M_dr / M_sr) - 1
+        N_cnt_dr++;
+        snake_sr = !snake_sr;
+      }
+
+      if(N_cnt_dr == (N_dr / N_sr)) {
+        // accum_cnt = 0;
+        // tile_cnt = 0;
+        // K_cnt_sr = 0;
+        // M_cnt_dr = snake_sr ? 0 : M_cnt_dr-1; /
+        N_cnt_dr = 0;
+        snake_sr = false;
+        K_cnt++; // counter for number of DRAM blocks in K dir of full computation space
+      }
+
+
+      // send the completed results
+      if(K_cnt == (K / K_dr)) {
+
+        for(int m = 0; m < (M_dr / M_sr); m++) {
+          for(int n = 0; n < (N_dr / N_sr); n++) {
           
-          if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
-          packet_out.Push(p_out);
-          packet_counter++;
-          wait();
+            for(int t = 0; t < (alpha * POD_SZ); t++) {
+              gettimeofday (&start, NULL);
 
-          gettimeofday (&end, NULL);
-            io_time += ((((end.tv_sec - start.tv_sec) * 1000000L)
-                + (end.tv_usec - start.tv_usec)) / 1000000.0);
+              // cout << "POD " << p_in.dstPod << "\n"; 
+              for (int i = 0; i < tile_sz; i++) {
+                 for (int j = 0; j < tile_sz; j++) {
+                  p_out.data[i][j] = cb_mat[n][m][t][i][j];
+                  cb_mat[n][m][t][i][j] = 0; // set cb_mat to 0;
+                  // cout << p_out.data[i][j] << " ";
+                }
+                // cout << "\n";
+              }
+              // cout << "\n";
 
+              p_out.src = id;
+              p_out.srcPod = p_in.dstPod;
+              p_out.dst = INT_MAX; // destination is SRAM
+              p_out.dstPod = 0; // destination pod is default 0 for SRAM
+              p_out.d_type = 2; // result type                    
+              
+              if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
+              packet_out.Push(p_out);
+              packet_counter++;
+              wait();
+
+              gettimeofday (&end, NULL);
+                io_time += ((((end.tv_sec - start.tv_sec) * 1000000L)
+                    + (end.tv_usec - start.tv_usec)) / 1000000.0);
+            }
+          }          
         }
-      
-        accum_cnt = 0;
-        tile_cnt = 0;
+
+        // accum_cnt = 0;
+        // tile_cnt = 0;
+        // K_cnt_sr = 0;
+        // M_cnt_dr = 0;
+        // N_cnt_dr = 0;
+        // snake_sr = false;
         K_cnt = 0;
-      } 
+      }
 
       // cout << "packet cnt = " << packet_counter << "\n";
       // // CB is not really 'idle' after its finished accumulating everything. Once its finished sending , stop counting time
@@ -129,7 +174,6 @@ SC_MODULE(CB)
       wait();
     }
   }
-
 
 };
 
