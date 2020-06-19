@@ -172,20 +172,20 @@ int sc_main(int argc, char *argv[]) {
     }
 
     my_testbench.maestro.cb[j]->id = 2*POD_SZ;
-    vector<vector<vector<PacketSwitch::AccumType>>> cbmat(alpha * POD_SZ, 
-                                vector<vector<PacketSwitch::AccumType>>(tile_sz, 
-                                        vector<PacketSwitch::AccumType>(tile_sz, 0)));
+
+    vector<vector<vector<vector<vector<PacketSwitch::AccumType>>>>> cbmat(N_dr / N_sr, 
+                    vector<vector<vector<vector<PacketSwitch::AccumType>>>>(K_dr / K_sr,
+                            vector<vector<vector<PacketSwitch::AccumType>>>(alpha * POD_SZ,
+                                    vector<vector<PacketSwitch::AccumType>>(tile_sz, 
+                                            vector<PacketSwitch::AccumType>(tile_sz, 0)))));
+
     my_testbench.maestro.cb[j]->cb_mat = cbmat;
   }
 
-  // TODO :  M, N, and K are set here for now. Later, they need to be dims of the 
+  // TODO :  M, N, and K are set in arch.h for now. Later, they need to be dims of the 
   // actually weight/data, which changes every DNN layer
-  // int M = Wy*4;
-  // int K = Wz*4;
-  // int N = Dx*4;
-
   cout << M << " " << K << " " << N << endl;
-  // Create weight and data matrices with random values
+  // Create weight and activation matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
@@ -194,6 +194,7 @@ int sc_main(int argc, char *argv[]) {
   my_testbench.dram.result = result;
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
+
 
   // if(DEBUG) {
     cout << "Weight matrix: \n";
@@ -204,7 +205,12 @@ int sc_main(int argc, char *argv[]) {
     PrintMat(ref_out);
   // }
 
+  sc_time start, end;
+  start = sc_time_stamp();
   sc_start();
+
+  end = sc_time_stamp();
+  cout << "TOTAL SIMULATION TIME = " << (end - start).to_default_time_units() << "\n";
 
   bool CORRECT = 1;
   for(int i = 0; i < M; i++) {
