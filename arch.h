@@ -66,7 +66,7 @@ HT says make some assumptions to ensure that the program runs.
 
 // Define P, each pod has (P,P) element pairs
 // Number of processing elements is Wz* Wy
-const static int P = 4;
+const static int P = 2;
 const static int alpha = 2;
 const static int tile_sz = 2; // change to 8 later
 const static int NUM_PODS = P*P;
@@ -79,9 +79,21 @@ const static int Dz = P*P*tile_sz; // Size of data block in the k dimension
 const static int Wz = P*P*tile_sz; // Size of block in the K dimension, same as Dz
 const static int Wy = Wz; // Size of block in the M dimension
 
-// dimensions of the matrices to be multiplied in the current layer
-const static int M = Wy;
-const static int K = Wz;
-const static int N = Dx;
+
+// size of SRAM block
+const static int M_sr = Wy;
+const static int K_sr = Wz;
+const static int N_sr = Dx;
+
+// size of DRAM block
+const static int M_dr = M_sr*2;
+const static int K_dr = K_sr*2;
+const static int N_dr = N_sr*2;
+
+// size of full matrices to be multiplied in the current layer
+const static int M = M_dr*2;
+const static int K = K_dr*2;
+const static int N = N_dr*2;
 
 #endif
+
