@@ -60,20 +60,43 @@ SC_MODULE(PacketSwitch)
     class Packet: public nvhls_message {
      public:
         VectorType data;
-        AddrType srcPod;
-        AddrType dstPod;
+        // AddrType srcPod;
+        // AddrType dstPod;
+
+        AddrType X;
+        AddrType Y;
+        AddrType Z;
+        AddrType x;
+        AddrType y;
+        AddrType z;
+        AddrType MB;
+        AddrType SA;
+        AddrType CB;
+        AddrType SRAM;
+
         AddrType src;
         AddrType dst;
         ID_type d_type; // weight (0), activation (1), result (2)
         Bcast bcast;
 
-        static const unsigned int width = ID_type::width + 4 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
+        static const unsigned int width = ID_type::width + 12 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
 
         template <unsigned int Size>
         void Marshall(Marshaller<Size>& m) {
             m& data;
-            m& srcPod;
-            m& dstPod;
+            // m& srcPod;
+            // m& dstPod;
+            m& X;
+            m& Y;
+            m& Z;
+            m& x;
+            m& y;
+            m& z;
+            m& MB;
+            m& SA;
+            m& CB;
+            m& SRAM;
+
             m& src;
             m& dst;
             m& d_type;
@@ -122,17 +145,19 @@ SC_MODULE(PacketSwitch)
         while (1) {
           // send input from SRAM to maestro
           if(maestro_in_port.PopNB(p_in1)) {
-            // broadcast
+            // broadcast...only applies to data packets
             if(p_in1.bcast) {
               for (int m1 = 0; m1 < Wy / tile_sz; m1++) {
                 d = p_in1.dst;
-                p_in1.dstPod = m1;
+                // p_in1.dstPod = m1;
+                p_in1.x = m1;
                 p_in1.bcast = 0;
                 out_ports[m1][d].Push(p_in1);
               }
             } else {
               d = p_in1.dst;
-              e = p_in1.dstPod;
+              // e = p_in1.dstPod;
+              e = p_in1.x;
               out_ports[e][d].Push(p_in1);
             }
             wait(3);
@@ -145,9 +170,10 @@ SC_MODULE(PacketSwitch)
               if(in_ports[j][i].PopNB(p_in2)) {
 
                 d = p_in2.dst;
-                e = p_in2.dstPod;
+                // e = p_in2.dstPod;
+                e = p_in2.x;
 
-                if(d == INT_MAX && e == 0) {
+                if(d == INT_MAX) { // if dst is SRAM addr              
                   maestro_out_port.Push(p_in2); // This  sends value to maestro top module, 
                                                   // which then interconnects directly to SRAM
                 } else {
@@ -155,11 +181,9 @@ SC_MODULE(PacketSwitch)
 
                   // track how often a packet is sent to the particular systolic array
                   // if(d >= POD_SZ && d < 2*POD_SZ) {
-                  if(e == P && d == POD_SZ) {
-                    cout << "switch->SA " << sc_time_stamp().to_default_time_units() << "\n";
-                  }
-
-
+                  // if(e == P && d == POD_SZ) {
+                  //   cout << "switch->SA " << sc_time_stamp().to_default_time_units() << "\n";
+                  // }
                 }
               }
             }
