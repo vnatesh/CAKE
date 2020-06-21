@@ -49,10 +49,10 @@ SC_MODULE(SA)
         int y;
         int z;
 
-        PacketSwitch::Packet packet_reg;
+        PacketSwitch::Packet p_in;
         vector<vector<PacketSwitch::AccumType>> weight_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
         vector<vector<PacketSwitch::AccumType>> act_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
-        vector<vector<PacketSwitch::AccumType>> result_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
+        vector<vector<PacketSwitch::AccumType>> result(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
 
         // timer for counters
         sc_time start, end;
@@ -62,34 +62,36 @@ SC_MODULE(SA)
 
             start = sc_time_stamp();
             
-            if (packet_in.PopNB(packet_reg)) {
-
-                if(packet_reg.d_type == 0 && is_weight_in == 0) { // weights
-                    for(int i = 0; i < tile_sz; i++) {
-                        for (int j = 0; j < tile_sz; j++) {
-                            weight_reg[i][j] = packet_reg.data[i][j];
+            if (packet_in.PopNB(p_in)) {
+                if(p_in.dst == p_in.SA) {
+                    
+                    if(p_in.d_type == 0 && is_weight_in == 0) { // weights
+                        for(int i = 0; i < tile_sz; i++) {
+                            for (int j = 0; j < tile_sz; j++) {
+                                weight_reg[i][j] = p_in.data[i][j];
+                            }
                         }
+
+                        // if(DEBUG) cout << "SA " << id << " Pod " << p_in.dstPod << " receive weight from MB " << p_in.src << "\n";
+                        if(DEBUG) cout << "SA " << id << " Pod " << p_in.x << " receive weight from MB " << p_in.src << "\n";
+                        is_weight_in = 1;                    
                     }
 
-                    // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive weight from MB " << packet_reg.src << "\n";
-                    if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " receive weight from MB " << packet_reg.src << "\n";
-                    is_weight_in = 1;                    
-                }
-
-                else if(packet_reg.d_type == 1 && is_act_in == 0) { // activation
-                    for(int i = 0; i < tile_sz; i++) {
-                        for (int j = 0; j < tile_sz; j++) {
-                            act_reg[i][j] = packet_reg.data[i][j];
+                    else if(p_in.d_type == 1 && is_act_in == 0) { // activation
+                        for(int i = 0; i < tile_sz; i++) {
+                            for (int j = 0; j < tile_sz; j++) {
+                                act_reg[i][j] = p_in.data[i][j];
+                            }
                         }
+
+                        x = p_in.x;
+                        y = p_in.y;
+                        z = p_in.z;
+
+                        // if(DEBUG) cout << "SA " << id << " Pod " << p_in.dstPod << " receive activation from MB " << p_in.src << "\n";
+                        if(DEBUG) cout << "SA " << id << " Pod " << p_in.x << " receive activation from MB " << p_in.src << "\n";
+                        is_act_in = 1;                                    
                     }
-
-                    x = packet_reg.x;
-                    y = packet_reg.y;
-                    z = packet_reg.z;
-
-                    // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive activation from MB " << packet_reg.src << "\n";
-                    if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " receive activation from MB " << packet_reg.src << "\n";
-                    is_act_in = 1;                                    
                 }
             }
 
@@ -99,11 +101,11 @@ SC_MODULE(SA)
             if(is_weight_in && is_act_in) { // do matmul and send result
                 // track matmul time
                 start = sc_time_stamp();
-                result_reg = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_reg, act_reg); 
+                result = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_reg, act_reg); 
                 wait(2*tile_sz); // wait for matmul
                 for(int i = 0; i < tile_sz; i++) {
                     for (int j = 0; j < tile_sz; j++) {                          
-                        packet_reg.data[i][j] = result_reg[i][j];
+                        p_in.data[i][j] = result[i][j];
                     }
                 }
                 end = sc_time_stamp();
@@ -112,19 +114,19 @@ SC_MODULE(SA)
                 mult_cnt++;
 
                 start = sc_time_stamp();
-                packet_reg.src = id;
-                // packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
-                // packet_reg.dst = 2*POD_SZ; // destination is CB
-                packet_reg.dst = packet_reg.CB;
-                packet_reg.x = x;
-                packet_reg.y = y;
-                packet_reg.z = z;
+                p_in.src = id;
+                // p_in.srcPod = p_in.dstPod; // send to CB in the same pod
+                // p_in.dst = 2*POD_SZ; // destination is CB
+                p_in.dst = p_in.CB;
+                p_in.x = x;
+                p_in.y = y;
+                p_in.z = z;
 
-                packet_reg.d_type = 2; // result type  
+                p_in.d_type = 2; // result type  
 
-                // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.srcPod << " sending result to CB\n";
-                if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " sending result to CB\n";
-                packet_out.Push(packet_reg);
+                // if(DEBUG) cout << "SA " << id << " Pod " << p_in.srcPod << " sending result to CB\n";
+                if(DEBUG) cout << "SA " << id << " Pod " << p_in.x << " sending result to CB\n";
+                packet_out.Push(p_in);
                 end = sc_time_stamp();
                 io_time += (end - start).to_default_time_units();
 
