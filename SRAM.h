@@ -223,14 +223,6 @@ SC_MODULE(SRAM) {
 
       if(packet_in.PopNB(p_in2)) {
 
-        // for (int i = 0; i < tile_sz; i++) {
-        //   for (int j = 0; j < tile_sz; j++) {
-        //     cout << p_in2.data[i][j] << " ";
-        //   }
-        //   cout << "\n";
-        // }
-        // cout << "\n";
-      
         sram_dram_out.Push(p_in2);
         result_cnt++;
       } 

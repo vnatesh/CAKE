@@ -177,8 +177,6 @@ SC_MODULE(DRAM) {
 
         packet_counter_recv++;
         pod_id = p_in.x;
-        cout << "hey " << pod_id << "\n";
-
 
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
