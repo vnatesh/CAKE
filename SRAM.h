@@ -129,7 +129,7 @@ SC_MODULE(SRAM) {
                 k1 = (K_dr / K_sr) - k_prime - 1;
               }
 
-              if(DEBUG) cout << "Sending weight block from SRAM to Maestro" << "\n";
+              if(DEBUG) cout << "Sending SRAM weight block from SRAM to Maestro" << "\n";
               for (int m = 0; m < (M_sr / tile_sz); m++) {
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
 
@@ -139,10 +139,17 @@ SC_MODULE(SRAM) {
                     }
                   }
 
+
+                  p_out1.x = m; // represents POD id
+                  p_out1.y = -1;
+                  p_out1.z = k;
+                  p_out1.MB = k; 
+                  p_out1.SA = k + POD_SZ; 
+                  p_out1.SRAM = INT_MAX; // sram src
                   p_out1.src = INT_MAX; // sram src
-                  p_out1.srcPod = 0; // sram default src pod
-                  p_out1.dst = k;
-                  p_out1.dstPod = m;
+                  p_out1.dst = k; // dst is MB
+                  // p_out1.srcPod = 0; // sram default src pod
+                  // p_out1.dstPod = m;
                   p_out1.d_type = 0;
                   p_out1.bcast = 0;
                   packet_out.Push(p_out1); 
@@ -153,7 +160,7 @@ SC_MODULE(SRAM) {
               }
 
 
-              if(DEBUG) cout << "Sending activation block from SRAM to Maestro" << "\n";
+              if(DEBUG) cout << "Sending SRAM activation block from SRAM to Maestro" << "\n";
               for (int n = 0; n < (N_sr / tile_sz); n++){
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
                
@@ -163,10 +170,16 @@ SC_MODULE(SRAM) {
                     }
                   }
 
-                  p_out2.src = INT_MAX;
-                  p_out2.srcPod = 0;
-                  p_out2.dst = k;
-                  // p_out2.dstPod = m;
+
+                  p_out2.x = -1; // dummy value for pod_id...it gets set by the packet switch during bcast
+                  p_out2.y = n;
+                  p_out2.z = k;
+                  p_out2.MB = k; 
+                  p_out2.SA = k + POD_SZ; 
+                  p_out2.SRAM = INT_MAX; // sram src
+                  p_out2.src = INT_MAX; // sram src
+                  p_out2.dst = k; // dst is MB
+                  // p_out2.srcPod = 0;
                   p_out2.d_type = 1;
                   p_out2.bcast = 1;
                   packet_out.Push(p_out2);
@@ -210,13 +223,13 @@ SC_MODULE(SRAM) {
 
       if(packet_in.PopNB(p_in2)) {
 
-        for (int i = 0; i < tile_sz; i++) {
-          for (int j = 0; j < tile_sz; j++) {
-            cout << p_in2.data[i][j] << " ";
-          }
-          cout << "\n";
-        }
-        cout << "\n";
+        // for (int i = 0; i < tile_sz; i++) {
+        //   for (int j = 0; j < tile_sz; j++) {
+        //     cout << p_in2.data[i][j] << " ";
+        //   }
+        //   cout << "\n";
+        // }
+        // cout << "\n";
       
         sram_dram_out.Push(p_in2);
         result_cnt++;
