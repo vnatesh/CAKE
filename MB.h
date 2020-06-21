@@ -47,10 +47,14 @@ SC_MODULE(MB)
                         }
                     }
 
-                    if(DEBUG) cout <<  "received weight at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
-                    packet_reg.src = id;
-                    packet_reg.srcPod = packet_reg.dstPod; // send to SA in the same pod
-                    packet_reg.dst = id + POD_SZ;
+                    // if(DEBUG) cout <<  "received weight at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
+                    if(DEBUG) cout <<  "received weight at MB " << packet_reg.x << " Pod " << id << " from SRAM\n";
+                    packet_reg.src = packet_reg.dst;
+                    // packet_reg.srcPod = packet_reg.dstPod; // send to SA in the same pod
+                    // packet_reg.dst = id + POD_SZ;
+                    packet_reg.dst = packet_reg.SA;
+                    packet_reg.CB = 2*POD_SZ; 
+
                     packet_reg.d_type = 0;
                     packet_out.Push(packet_reg);                  
                 }
@@ -62,11 +66,15 @@ SC_MODULE(MB)
                         }
                     }
                     
-                    if(DEBUG) cout <<  "received activation at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
+                    // if(DEBUG) cout <<  "received activation at MB " << packet_reg.dstPod << " Pod " << id << " from SRAM\n";
+                    if(DEBUG) cout <<  "received activation at MB " << packet_reg.x << " Pod " << id << " from SRAM\n";
                     packet_reg.src = id;
-                    packet_reg.srcPod = packet_reg.dstPod;
-                    packet_reg.dst = id + POD_SZ;
-                    packet_reg.d_type = 1;
+                    // packet_reg.srcPod = packet_reg.dstPod;
+                    // packet_reg.dst = id + POD_SZ;
+                    packet_reg.dst = packet_reg.SA;
+                    packet_reg.CB = 2*POD_SZ; 
+
+                    packet_reg.d_type = 1;                    
                     packet_out.Push(packet_reg);                    
                 }
             }
