@@ -56,9 +56,10 @@ SC_MODULE(CB)
       if(packet_in.PopNB(p_in)) {
 
         gettimeofday (&start, NULL);
-        if(p_in.dst == id && p_in.d_type == 2) { // dst is cb and packet is result type
+        if(p_in.dst == p_in.CB && p_in.d_type == 2) { // dst is cb and packet is result type
           
-          if(DEBUG) cout << "Partial result received at CB " << p_in.dstPod << "\n";
+          // if(DEBUG) cout << "Partial result received at CB " << p_in.dstPod << "\n";
+          if(DEBUG) cout << "Partial result received at CB " << p_in.x << "\n";
           for (int i = 0; i < tile_sz; i++) {
              for (int j = 0; j < tile_sz; j++) {
               cb_mat[N_cnt_dr][M_cnt_dr][tile_cnt][i][j] += p_in.data[i][j];
@@ -81,38 +82,26 @@ SC_MODULE(CB)
       }
 
       if(tile_cnt == alpha * POD_SZ) {
-        // accum_cnt = 0;
         tile_cnt = 0;
         K_cnt_sr++;
       }
 
       if(K_cnt_sr == (K_dr / K_sr)) {
-        // accum_cnt = 0;
-        // tile_cnt = 0;
         K_cnt_sr = 0;
         M_cnt_dr = snake_sr ? M_cnt_dr-1 : M_cnt_dr+1; // if going up in opp dir, then its not ++..should be --
       }
 
-
       if((!snake_sr && (M_cnt_dr == (M_dr / M_sr))) || (snake_sr && M_cnt_dr == -1)) {
-        // accum_cnt = 0;
-        // tile_cnt = 0;
-        // K_cnt_sr = 0;
         M_cnt_dr = snake_sr ? 0 : M_cnt_dr-1; // if going up in opp dir, then its not 0..should be (M_dr / M_sr) - 1
         N_cnt_dr++;
         snake_sr = !snake_sr;
       }
 
       if(N_cnt_dr == (N_dr / N_sr)) {
-        // accum_cnt = 0;
-        // tile_cnt = 0;
-        // K_cnt_sr = 0;
-        // M_cnt_dr = snake_sr ? 0 : M_cnt_dr-1; /
         N_cnt_dr = 0;
         snake_sr = false;
         K_cnt++; // counter for number of DRAM blocks in K dir of full computation space
       }
-
 
       // send the completed results
       if(K_cnt == (K / K_dr)) {
@@ -123,24 +112,24 @@ SC_MODULE(CB)
             for(int t = 0; t < (alpha * POD_SZ); t++) {
               gettimeofday (&start, NULL);
 
-              // cout << "POD " << p_in.dstPod << "\n"; 
               for (int i = 0; i < tile_sz; i++) {
                  for (int j = 0; j < tile_sz; j++) {
                   p_out.data[i][j] = cb_mat[n][m][t][i][j];
                   cb_mat[n][m][t][i][j] = 0; // set cb_mat to 0;
-                  // cout << p_out.data[i][j] << " ";
                 }
-                // cout << "\n";
               }
-              // cout << "\n";
 
-              p_out.src = id;
-              p_out.srcPod = p_in.dstPod;
-              p_out.dst = INT_MAX; // destination is SRAM
-              p_out.dstPod = 0; // destination pod is default 0 for SRAM
+              // p_out.srcPod = p_in.dstPod;
+              // p_out.dst = INT_MAX; // destination is SRAM
+              // p_out.dstPod = 0; // destination pod is default 0 for SRAM
+              p_out.x = p_in.x;
+              p_out.src = p_in.CB;
+              // p_out.src = p_in.id;
+              p_out.dst = p_in.SRAM;
               p_out.d_type = 2; // result type                    
               
-              if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
+              // if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
+              if(DEBUG) cout <<  "CB " << p_out.x << " sending tile " << t << " to SRAM\n";
               packet_out.Push(p_out);
               packet_counter++;
               wait();
@@ -152,12 +141,6 @@ SC_MODULE(CB)
           }          
         }
 
-        // accum_cnt = 0;
-        // tile_cnt = 0;
-        // K_cnt_sr = 0;
-        // M_cnt_dr = 0;
-        // N_cnt_dr = 0;
-        // snake_sr = false;
         K_cnt = 0;
       }
 
