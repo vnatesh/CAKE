@@ -76,6 +76,10 @@ SC_MODULE(DRAM) {
           for (int i = 0; i < M_dr; i++) {
             for (int j = 0; j < K_dr; j++) {
               weight_blk_dr[i][j] = weights[m1 * M_dr + i][k1 * K_dr + j];
+              // p_out1.X = m1 * M_dr + i;
+              // p_out1.Y = -1;
+              // p_out1.Z = k1 * K_dr + j;
+
             }
           }
 
@@ -87,6 +91,10 @@ SC_MODULE(DRAM) {
           for (int i = 0; i < K_dr; i++) {
             for (int j = 0; j < N_dr; j++) {
               activation_blk_dr[i][j] = activations[k1 * K_dr + i][n1 * N_dr + j];
+              // p_out2.X = -1;
+              // p_out2.Y = n1 * N_dr + j;
+              // p_out2.Z = k1 * K_dr + i;
+
             }
           }
 
@@ -168,23 +176,26 @@ SC_MODULE(DRAM) {
       if(packet_in.PopNB(p_in)) {
 
         packet_counter_recv++;
-        pod_id = p_in.srcPod;
+        pod_id = p_in.x;
+        cout << "hey " << pod_id << "\n";
+
 
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
             // result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
-            result[(M_cnt * M_dr) + (M_dr_cnt[pod_id] * NUM_PODS) + (pod_id * tile_sz) + i][(N_cnt * N_dr) + (N_dr_cnt[pod_id] * tile_sz) + j] = p_in.data[i][j];
+            result[(M_cnt * M_dr) + (M_dr_cnt[pod_id] * M_sr) + (pod_id * tile_sz) + i][(N_cnt * N_dr) + (N_dr_cnt[pod_id] * tile_sz) + j] = p_in.data[i][j];
+            
           }
         }
 
         N_dr_cnt[pod_id]++;
 
-        if(N_dr_cnt[pod_id] == N_dr / tile_sz) {
+        if(N_dr_cnt[pod_id] == (N_dr / tile_sz)) {
           N_dr_cnt[pod_id] = 0;
           M_dr_cnt[pod_id]++;
         }
 
-        if(M_dr_cnt[pod_id] == M_dr / M_sr) {
+        if(M_dr_cnt[pod_id] == (M_dr / M_sr)) {
           N_dr_cnt[pod_id] = 0;
           M_dr_cnt[pod_id] = 0;
           pod_cnt++;
@@ -219,7 +230,7 @@ SC_MODULE(DRAM) {
         }
 
 
-        if(N_cnt == N / N_dr) {
+        if(N_cnt == (N / N_dr)) {
           gettimeofday (&end, NULL);
           io_time_recv += ((((end.tv_sec - start.tv_sec) * 1000000L)
                     + (end.tv_usec - start.tv_usec)) / 1000000.0);
