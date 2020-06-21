@@ -41,6 +41,14 @@ SC_MODULE(SA)
         bool is_act_in = 0;
         int out_cnt = 0;
 
+
+        int X;
+        int Y;
+        int Z;
+        int x;
+        int y;
+        int z;
+
         PacketSwitch::Packet packet_reg;
         vector<vector<PacketSwitch::AccumType>> weight_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
         vector<vector<PacketSwitch::AccumType>> act_reg(tile_sz, vector<PacketSwitch::AccumType>(tile_sz)); 
@@ -56,30 +64,32 @@ SC_MODULE(SA)
             
             if (packet_in.PopNB(packet_reg)) {
 
-                if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 0) { // weights
-                    if(is_weight_in == 0) {
-                        for(int i = 0; i < tile_sz; i++) {
-                            for (int j = 0; j < tile_sz; j++) {
-                                weight_reg[i][j] = packet_reg.data[i][j];
-                            }
+                if(packet_reg.d_type == 0 && is_weight_in == 0) { // weights
+                    for(int i = 0; i < tile_sz; i++) {
+                        for (int j = 0; j < tile_sz; j++) {
+                            weight_reg[i][j] = packet_reg.data[i][j];
                         }
-                        if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive weight from MB " << packet_reg.src << "\n";
-                        is_weight_in = 1;
                     }
+
+                    // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive weight from MB " << packet_reg.src << "\n";
+                    if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " receive weight from MB " << packet_reg.src << "\n";
+                    is_weight_in = 1;                    
                 }
 
-                else if(packet_reg.src == (id - POD_SZ)   &&   packet_reg.d_type == 1) { // activation
-                    if(is_act_in == 0) {
-
-                        for(int i = 0; i < tile_sz; i++) {
-                            for (int j = 0; j < tile_sz; j++) {
-                                act_reg[i][j] = packet_reg.data[i][j];
-                            }
+                else if(packet_reg.d_type == 1 && is_act_in == 0) { // activation
+                    for(int i = 0; i < tile_sz; i++) {
+                        for (int j = 0; j < tile_sz; j++) {
+                            act_reg[i][j] = packet_reg.data[i][j];
                         }
+                    }
 
-                        if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive activation from MB " << packet_reg.src << "\n";
-                        is_act_in = 1;
-                    }                    
+                    x = packet_reg.x;
+                    y = packet_reg.y;
+                    z = packet_reg.z;
+
+                    // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.dstPod << " receive activation from MB " << packet_reg.src << "\n";
+                    if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " receive activation from MB " << packet_reg.src << "\n";
+                    is_act_in = 1;                                    
                 }
             }
 
@@ -90,7 +100,7 @@ SC_MODULE(SA)
                 // track matmul time
                 start = sc_time_stamp();
                 result_reg = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(weight_reg, act_reg); 
-                wait(2*tile_sz); //
+                wait(2*tile_sz); // wait for matmul
                 for(int i = 0; i < tile_sz; i++) {
                     for (int j = 0; j < tile_sz; j++) {                          
                         packet_reg.data[i][j] = result_reg[i][j];
@@ -103,10 +113,17 @@ SC_MODULE(SA)
 
                 start = sc_time_stamp();
                 packet_reg.src = id;
-                packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
-                packet_reg.dst = 2*POD_SZ; // destination is CB
-                packet_reg.d_type = 2; // result type                    
-                if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.srcPod << " sending result to CB\n";
+                // packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
+                // packet_reg.dst = 2*POD_SZ; // destination is CB
+                packet_reg.dst = packet_reg.CB;
+                packet_reg.x = x;
+                packet_reg.y = y;
+                packet_reg.z = z;
+
+                packet_reg.d_type = 2; // result type  
+
+                // if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.srcPod << " sending result to CB\n";
+                if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " sending result to CB\n";
                 packet_out.Push(packet_reg);
                 end = sc_time_stamp();
                 io_time += (end - start).to_default_time_units();
