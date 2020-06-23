@@ -80,9 +80,9 @@ SC_MODULE(DRAM) {
               for (int i = 0; i < tile_sz; i++) {
                 for (int j = 0; j < tile_sz; j++) {
                   p_out1.data[i][j] = weights[(m1 * M_dr) + (m * tile_sz) + i][(k1 * K_dr) + (k * tile_sz) + j];
-                  p_out1.X = (m1 * M_dr) + (m * tile_sz) + i;
+                  p_out1.X = (m1 * M_dr) + (m * tile_sz);
                   p_out1.Y = -1;
-                  p_out1.Z = (k1 * K_dr) + (k * tile_sz) + j;
+                  p_out1.Z = (k1 * K_dr) + (k * tile_sz);
                 }
               }
               // wait(10);
@@ -104,8 +104,8 @@ SC_MODULE(DRAM) {
                 for (int j = 0; j < tile_sz; j++) {
                   p_out2.data[i][j] = activations[(k1 * K_dr) + (k * tile_sz) + i][(n1 * N_dr) + (n * tile_sz) + j];
                   p_out2.X = -1;
-                  p_out2.Y = (n1 * N_dr) + (n * tile_sz) + j;
-                  p_out2.Z = (k1 * K_dr) + (k * tile_sz) + i;
+                  p_out2.Y = (n1 * N_dr) + (n * tile_sz);
+                  p_out2.Z = (k1 * K_dr) + (k * tile_sz);
                 }
               }
 
