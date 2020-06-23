@@ -49,6 +49,7 @@ SC_MODULE(DRAM) {
     gettimeofday (&start, NULL);
 
     for (int n1 = 0; n1 < (N / N_dr); n1++) {
+
       for (int m_prime = 0; m_prime < (M / M_dr); m_prime++) {
 
         int m1;
@@ -71,36 +72,6 @@ SC_MODULE(DRAM) {
 
           if(DEBUG) cout <<  n1 << " " << m1 << " " << k1 << "\n";
 
-          // Slice weights to be w[m*Wy:(m+1)Wy, k*Wz:(k+1)Wz]
-          vector<vector<PacketSwitch::AccumType>> weight_blk_dr(M_dr, vector<PacketSwitch::AccumType>(K_dr)); 
-          for (int i = 0; i < M_dr; i++) {
-            for (int j = 0; j < K_dr; j++) {
-              weight_blk_dr[i][j] = weights[m1 * M_dr + i][k1 * K_dr + j];
-              // p_out1.X = m1 * M_dr + i;
-              // p_out1.Y = -1;
-              // p_out1.Z = k1 * K_dr + j;
-
-            }
-          }
-
-          // wait(10);
-          wait();
-
-          // Slice data to be d[k*Dz: (k+1)Dz, n*Dx: (n+1)*Dx]
-          vector<vector<PacketSwitch::AccumType>> activation_blk_dr(K_dr, vector<PacketSwitch::AccumType>(N_dr)); 
-          for (int i = 0; i < K_dr; i++) {
-            for (int j = 0; j < N_dr; j++) {
-              activation_blk_dr[i][j] = activations[k1 * K_dr + i][n1 * N_dr + j];
-              // p_out2.X = -1;
-              // p_out2.Y = n1 * N_dr + j;
-              // p_out2.Z = k1 * K_dr + i;
-
-            }
-          }
-
-          // wait(10);
-          wait();
-
           // Send weights to SRAM. For each block, loop over the weight tiles, assign src/dst addrs
           if(DEBUG) cout << "Sending weights from DRAM to SRAM \n";
           for (int m = 0; m < M_dr/tile_sz; m++) { // row
@@ -108,11 +79,15 @@ SC_MODULE(DRAM) {
 
               for (int i = 0; i < tile_sz; i++) {
                 for (int j = 0; j < tile_sz; j++) {
-                  p_out1.data[i][j] = weight_blk_dr[m * tile_sz + i][k * tile_sz + j];
+                  p_out1.data[i][j] = weights[(m1 * M_dr) + (m * tile_sz) + i][(k1 * K_dr) + (k * tile_sz) + j];
+                  p_out1.X = (m1 * M_dr) + (m * tile_sz) + i;
+                  p_out1.Y = -1;
+                  p_out1.Z = (k1 * K_dr) + (k * tile_sz) + j;
                 }
               }
               // wait(10);
               wait();
+
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
               // wait(20);
@@ -127,7 +102,10 @@ SC_MODULE(DRAM) {
            
               for (int i = 0; i < tile_sz; i++) {
                 for (int j = 0; j < tile_sz; j++) {
-                  p_out2.data[i][j] = activation_blk_dr[k * tile_sz + i][n * tile_sz + j];
+                  p_out2.data[i][j] = activations[(k1 * K_dr) + (k * tile_sz) + i][(n1 * N_dr) + (n * tile_sz) + j];
+                  p_out2.X = -1;
+                  p_out2.Y = (n1 * N_dr) + (n * tile_sz) + j;
+                  p_out2.Z = (k1 * K_dr) + (k * tile_sz) + i;
                 }
               }
 
@@ -165,8 +143,6 @@ SC_MODULE(DRAM) {
     int pod_id;
     bool snake = false;
 
-    // int tiles_recv[NUM_PODS][M_dr / M_sr][N_dr / tile_sz] = {0};
-
     struct timeval start, end;
 
     // Store the completed sum in the final result [m*Wy:(m+1)*Wy, n*Dx: (n+1)Dx]
@@ -180,9 +156,7 @@ SC_MODULE(DRAM) {
 
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
-            // result[(m*Wy) + (row_tile*tile_sz) + i][(n * Dx) + (col_tile * tile_sz) + j] = p_in.data[i][j];
-            result[(M_cnt * M_dr) + (M_dr_cnt[pod_id] * M_sr) + (pod_id * tile_sz) + i][(N_cnt * N_dr) + (N_dr_cnt[pod_id] * tile_sz) + j] = p_in.data[i][j];
-            
+            result[(M_cnt * M_dr) + (M_dr_cnt[pod_id] * M_sr) + (pod_id * tile_sz) + i][(N_cnt * N_dr) + (N_dr_cnt[pod_id] * tile_sz) + j] = p_in.data[i][j];            
           }
         }
 
