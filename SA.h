@@ -73,6 +73,10 @@ SC_MODULE(SA)
       io_time += (end - start).to_default_time_units();
 
       if(is_act_in) { // do matmul and send result
+
+        // packet reg now contains the activation header i.e. outgoing packet
+        // will contain Y,Z,x,y,z dims from activation
+
         // track TileMul time
         start = sc_time_stamp();
         packet_reg.data = TileMul(weight.data, activation.data); 
@@ -83,6 +87,8 @@ SC_MODULE(SA)
         mult_cnt++;
 
         start = sc_time_stamp();
+
+        packet_reg.X = weight.X; // set X val in packet to that of weight
         packet_reg.src = packet_reg.dst;
         // packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
         // packet_reg.dst = 2*POD_SZ; // destination is CB
