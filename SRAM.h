@@ -48,7 +48,6 @@ SC_MODULE(SRAM) {
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
-
     PacketSwitch::Packet p_out1;
     PacketSwitch::Packet p_out2;
 
@@ -56,12 +55,10 @@ SC_MODULE(SRAM) {
     int k_cnt = 0; // weight col / act row
     int n_cnt = 0; // act col
 
-
-    vector<vector<PacketSwitch::AccumType>> weight_blk_sr(M_dr, vector<PacketSwitch::AccumType>(K_dr)); 
-    vector<vector<PacketSwitch::AccumType>> activation_blk_sr(K_dr, vector<PacketSwitch::AccumType>(N_dr)); 
+    vector<vector<PacketSwitch::Packet>> weight_blk_sr(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
+    vector<vector<PacketSwitch::Packet>> activation_blk_sr(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
 
     sc_time start, end;
-
 
     while(1) {
       if(sram_dram_in.PopNB(p_in)) {
@@ -69,13 +66,9 @@ SC_MODULE(SRAM) {
         start = sc_time_stamp();
         if(p_in.d_type == 0) {
 
-          for (int i = 0; i < tile_sz; i++) {
-            for (int j = 0; j < tile_sz; j++) {
-              weight_blk_sr[m_cnt * tile_sz + i][k_cnt * tile_sz + j] = p_in.data[i][j];
-            }
-          }
-
+          weight_blk_sr[m_cnt][k_cnt] = p_in;
           k_cnt++;
+          
           if(k_cnt == K_dr / tile_sz) {
             k_cnt = 0;
             m_cnt++;
@@ -84,14 +77,9 @@ SC_MODULE(SRAM) {
 
         else if(p_in.d_type == 1) {
 
-          for (int i = 0; i < tile_sz; i++) {
-            for (int j = 0; j < tile_sz; j++) {
-              activation_blk_sr[k_cnt * tile_sz + i][n_cnt * tile_sz + j] = p_in.data[i][j];
-            }
-          }
-
-          // wait(5);
+          activation_blk_sr[k_cnt][n_cnt] = p_in;
           k_cnt++;
+
           if(k_cnt == K_dr / tile_sz) {
             k_cnt = 0;
             n_cnt++;
@@ -102,17 +90,17 @@ SC_MODULE(SRAM) {
       wait();
 
 
-      // when a full weight and act DRAM block are in SRAM, sweep the DRAM block via snake, 
+      // when a full DRAM block (both weight and act) have been stored in SRAM, sweep the DRAM block via snake, 
       // i.e. send each weight/act SRAM_block pair in the snaking pattern, 
       // with weight being sent first, then act. 
-      // TODO : need to actually implement data and weight reuse. Currently  
+      // TODO : need to actually implement data and weight reuse.   
       if((m_cnt == M_dr / tile_sz) && (n_cnt ==  N_dr / tile_sz)) {
-        
+
         for (int n1 = 0; n1 < (N_dr / N_sr); n1++) {
+
           for (int m_prime = 0; m_prime < (M_dr / M_sr); m_prime++) {
 
             int m1;
-
             if((n1 % 2) == 0) {
               m1 = m_prime;
             } else {
@@ -122,7 +110,6 @@ SC_MODULE(SRAM) {
             for (int k_prime = 0; k_prime < (K_dr / K_sr); k_prime++) {
 
               int k1;
-
               if ((m_prime % 2) == 0) {
                 k1 = k_prime;
               } else {
@@ -133,13 +120,7 @@ SC_MODULE(SRAM) {
               for (int m = 0; m < (M_sr / tile_sz); m++) {
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
 
-                  for (int i = 0; i < tile_sz; i++) {
-                    for (int j = 0; j < tile_sz; j++) {
-                      p_out1.data[i][j] = weight_blk_sr[(m1 * M_sr) + (m * tile_sz + i)][(k1 * K_sr) + (k * tile_sz + j)];
-                    }
-                  }
-
-
+                  p_out1 = weight_blk_sr[(m1 * (M_sr/tile_sz)) + m][(k1 * (K_sr/tile_sz)) + k];
                   p_out1.x = m; // represents POD id
                   p_out1.y = -1;
                   p_out1.z = k;
@@ -164,13 +145,7 @@ SC_MODULE(SRAM) {
               for (int n = 0; n < (N_sr / tile_sz); n++){
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
                
-                  for (int i = 0; i < tile_sz; i++) {
-                    for (int j = 0; j < tile_sz; j++) {
-                      p_out2.data[i][j] = activation_blk_sr[(k1 * K_sr) + (k * tile_sz + i)][(n1 * N_sr) + (n * tile_sz + j)];
-                    }
-                  }
-
-
+                  p_out2 = activation_blk_sr[(k1 * (K_sr/tile_sz)) + k][(n1 * (N_sr/tile_sz)) + n];
                   p_out2.x = -1; // dummy value for pod_id...it gets set by the packet switch during bcast
                   p_out2.y = n;
                   p_out2.z = k;
