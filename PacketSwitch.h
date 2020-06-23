@@ -3,6 +3,7 @@
 
 #include "arch.h"
 
+
 template<typename T, typename U>
 vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
   // mat_A _N*_M
@@ -14,6 +15,32 @@ vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
   
   assert(_M == (int) mat_B.size());
   vector<vector<U>> mat_C(_N, vector<U>(_P, 0)); 
+
+  for (int i = 0; i < _N; i++) {
+    for (int j = 0; j < _P; j++) {
+      mat_C[i][j] = 0;
+      for (int k = 0; k < _M; k++) {
+        mat_C[i][j] += mat_A[i][k]*mat_B[k][j];
+      }
+    }
+  }
+  return mat_C;
+}
+
+
+// define types for tile matmul. same types as in Packet class
+typedef NVINT32  AccumType;
+typedef typename nvhls::nv_scvector<nvhls::nv_scvector <AccumType, tile_sz>, tile_sz> VectorType;
+
+VectorType TileMul(VectorType mat_A, VectorType mat_B) {
+  // mat_A _N*_M
+  // mat_B _M*_P
+  // mat_C _N*_P
+  int _N = tile_sz;
+  int _M = tile_sz;
+  int _P = tile_sz;
+  
+  VectorType mat_C; 
 
   for (int i = 0; i < _N; i++) {
     for (int j = 0; j < _P; j++) {
@@ -62,7 +89,6 @@ SC_MODULE(PacketSwitch)
         VectorType data;
         // AddrType srcPod;
         // AddrType dstPod;
-
         AddrType X;
         AddrType Y;
         AddrType Z;
@@ -73,13 +99,13 @@ SC_MODULE(PacketSwitch)
         AddrType SA;
         AddrType CB;
         AddrType SRAM;
-
+        AddrType ttl;
         AddrType src;
         AddrType dst;
         ID_type d_type; // weight (0), activation (1), result (2)
         Bcast bcast;
 
-        static const unsigned int width = ID_type::width + 12 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
+        static const unsigned int width = ID_type::width + 13 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
 
         template <unsigned int Size>
         void Marshall(Marshaller<Size>& m) {
@@ -96,7 +122,7 @@ SC_MODULE(PacketSwitch)
             m& SA;
             m& CB;
             m& SRAM;
-
+            m& ttl;
             m& src;
             m& dst;
             m& d_type;
