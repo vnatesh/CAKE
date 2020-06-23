@@ -116,6 +116,8 @@ SC_MODULE(SRAM) {
                 k1 = (K_dr / K_sr) - k_prime - 1;
               }
 
+
+              // Sweep through the DRAM block, sending data to be loaded on MBs, then weights
               if(DEBUG) cout << "Sending SRAM weight block from SRAM to Maestro" << "\n";
               for (int m = 0; m < (M_sr / tile_sz); m++) {
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
@@ -127,6 +129,7 @@ SC_MODULE(SRAM) {
                   p_out1.MB = k; 
                   p_out1.SA = k + POD_SZ; 
                   p_out1.SRAM = INT_MAX; // sram src
+                  p_out1.ttl = 0; // weight ttl set to 0 except when new region about to start
                   p_out1.src = INT_MAX; // sram src
                   p_out1.dst = k; // dst is MB
                   // p_out1.srcPod = 0; // sram default src pod
@@ -146,12 +149,13 @@ SC_MODULE(SRAM) {
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
                
                   p_out2 = activation_blk_sr[(k1 * (K_sr/tile_sz)) + k][(n1 * (N_sr/tile_sz)) + n];
-                  p_out2.x = -1; // dummy value for pod_id...it gets set by the packet switch during bcast
+                  p_out2.x = -1; // dummy value for x (pod_id)...it gets set by the packet switch during bcast
                   p_out2.y = n;
                   p_out2.z = k;
                   p_out2.MB = k; 
                   p_out2.SA = k + POD_SZ; 
                   p_out2.SRAM = INT_MAX; // sram src
+                  p_out2.ttl = M_dr / M_sr; // each MB stores ((alpha*K_dr) / (tile_size*num_pods) data tiles 
                   p_out2.src = INT_MAX; // sram src
                   p_out2.dst = k; // dst is MB
                   // p_out2.srcPod = 0;
@@ -163,6 +167,7 @@ SC_MODULE(SRAM) {
                   wait();
                 }
               }
+
             }
           }
         }
