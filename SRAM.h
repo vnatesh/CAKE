@@ -66,7 +66,7 @@ SC_MODULE(SRAM) {
         start = sc_time_stamp();
         if(p_in.d_type == 0) {
 
-          weight_blk_sr[m_cnt][k_cnt] = p_in;
+          weight_blk_sr[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
           k_cnt++;
           
           if(k_cnt == K_dr / tile_sz) {
@@ -77,7 +77,7 @@ SC_MODULE(SRAM) {
 
         else if(p_in.d_type == 1) {
 
-          activation_blk_sr[k_cnt][n_cnt] = p_in;
+          activation_blk_sr[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
           k_cnt++;
 
           if(k_cnt == K_dr / tile_sz) {
