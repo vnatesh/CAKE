@@ -24,77 +24,44 @@ SC_MODULE(SRAM) {
 
   int result_cnt = 0;
   int wait_cnt = 0;
+  bool ready = 1;
+  bool start_send = 0;
 
+  vector<vector<PacketSwitch::Packet>> weight_buf;
+  vector<vector<PacketSwitch::Packet>> activation_buf;
 
 
   // 0-3 is MB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
   SC_HAS_PROCESS(SRAM);
   SRAM(sc_module_name name_) : sc_module(name_) {
-    SC_THREAD(send_block);
+    
+    SC_THREAD(recv_dram);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+    SC_THREAD(send_to_maestro);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
     SC_THREAD(receive_result);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
-
   }
 
 
-  void send_block() {
 
-    sram_dram_in.Reset();
+  void send_to_maestro() {
+
     packet_out.Reset();
     wait(20.0, SC_NS);
 
-    PacketSwitch::Packet p_in;
     PacketSwitch::Packet p_out1;
     PacketSwitch::Packet p_out2;
-
-    int m_cnt = 0; // weight row
-    int k_cnt = 0; // weight col / act row
-    int n_cnt = 0; // act col
-
-    vector<vector<PacketSwitch::Packet>> weight_blk_sr(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
-    vector<vector<PacketSwitch::Packet>> activation_blk_sr(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
 
     sc_time start, end;
 
     while(1) {
-      if(sram_dram_in.PopNB(p_in)) {
-
-        start = sc_time_stamp();
-        if(p_in.d_type == 0) {
-
-          weight_blk_sr[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
-          k_cnt++;
-          
-          if(k_cnt == K_dr / tile_sz) {
-            k_cnt = 0;
-            m_cnt++;
-          }
-        }
-
-        else if(p_in.d_type == 1) {
-
-          activation_blk_sr[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
-          k_cnt++;
-
-          if(k_cnt == K_dr / tile_sz) {
-            k_cnt = 0;
-            n_cnt++;
-          }
-        }
-      }
-
-      wait();
-
-
-      // when a full DRAM block (both weight and act) have been stored in SRAM, sweep the DRAM block via snake, 
-      // i.e. send each weight/act SRAM_block pair in the snaking pattern, 
-      // with act being sent first, then weight. 
-      // TODO : need to actually implement data and weight reuse.   
-      if((m_cnt == M_dr / tile_sz) && (n_cnt ==  N_dr / tile_sz)) {
+      if(start_send) {  
 
         for (int n1 = 0; n1 < (N_dr / N_sr); n1++) {
 
@@ -112,7 +79,7 @@ SC_MODULE(SRAM) {
             for (int n = 0; n < (N_sr / tile_sz); n++){
               for (int k = 0; k < (K_sr / tile_sz); k++) {
                    
-                p_out2 = activation_blk_sr[(k1 * (K_sr/tile_sz)) + k][(n1 * (N_sr/tile_sz)) + n];
+                p_out2 = activation_buf[(k1 * (K_sr/tile_sz)) + k][(n1 * (N_sr/tile_sz)) + n];
                 p_out2.x = -1; // dummy value for x (pod_id)...it gets set by the packet switch during bcast
                 p_out2.y = n;
                 p_out2.z = k;
@@ -127,8 +94,8 @@ SC_MODULE(SRAM) {
                 p_out2.bcast = 1;
                 packet_out.Push(p_out2);
                 packet_counter++;
-
                 wait();
+                // cout << "SRAM send packet to maestro\n"; 
               }
             }
           }
@@ -151,13 +118,12 @@ SC_MODULE(SRAM) {
                 k1 = (K_dr / K_sr) - k_prime - 1;
               }
 
-
               // Sweep through the DRAM block, sending data to be loaded on MBs, then weights
               if(DEBUG) cout << "Sending SRAM weight block from SRAM to Maestro" << "\n";
               for (int m = 0; m < (M_sr / tile_sz); m++) {
                 for (int k = 0; k < (K_sr / tile_sz); k++) {
 
-                  p_out1 = weight_blk_sr[(m1 * (M_sr/tile_sz)) + m][(k1 * (K_sr/tile_sz)) + k];
+                  p_out1 = weight_buf[(m1 * (M_sr/tile_sz)) + m][(k1 * (K_sr/tile_sz)) + k];
                   p_out1.x = m; // represents POD id
                   p_out1.y = -1;
                   p_out1.z = k;
@@ -173,7 +139,7 @@ SC_MODULE(SRAM) {
                   p_out1.bcast = 0;
                   packet_out.Push(p_out1); 
                   packet_counter++;
-
+                  // cout << "SRAM send packet to maestro\n"; 
                   wait();
                 }
               }
@@ -181,9 +147,101 @@ SC_MODULE(SRAM) {
           }
         }
 
+        ready = 1;
+        start_send = 0;
+      }
+
+      wait();
+    }
+  }
+
+
+  void recv_dram() {
+
+    sram_dram_in.Reset();
+    wait(20.0, SC_NS);
+
+    PacketSwitch::Packet p_in;
+
+    int m_cnt = 0; // weight row
+    int k_cnt = 0; // weight col / act row
+    int n_cnt = 0; // act col
+    bool buffer_opt = 1;
+
+    vector<vector<PacketSwitch::Packet>> weight_blk_sr1(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
+    vector<vector<PacketSwitch::Packet>> activation_blk_sr1(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+
+    vector<vector<PacketSwitch::Packet>> weight_blk_sr2(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
+    vector<vector<PacketSwitch::Packet>> activation_blk_sr2(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+
+    sc_time start, end;
+
+    while(1) {
+
+      if(sram_dram_in.PopNB(p_in)) {
+
+        cout << "SRAM Receive packet from DRAM\n"; 
+
+
+        start = sc_time_stamp();
+        if(p_in.d_type == 0) {
+
+          if(buffer_opt) {
+            weight_blk_sr1[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
+          } else {
+            weight_blk_sr2[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
+          }
+
+          k_cnt++;
+          
+          if(k_cnt == K_dr / tile_sz) {
+            k_cnt = 0;
+            m_cnt++;
+          }
+        }
+
+        else if(p_in.d_type == 1) {
+
+          if(buffer_opt) {
+            activation_blk_sr1[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
+          } else {
+            activation_blk_sr2[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
+          }
+
+          k_cnt++;
+
+          if(k_cnt == K_dr / tile_sz) {
+            k_cnt = 0;
+            n_cnt++;
+          }
+        }
+      }
+
+      wait();
+
+      // when a full DRAM block (both weight and act) have been stored in SRAM, sweep the DRAM block via snake, 
+      // i.e. send each weight/act SRAM_block pair in the snaking pattern, 
+      // with act being sent first, then weight. 
+      // TODO : need to implement weight reuse.   
+      if((m_cnt == M_dr / tile_sz) && (n_cnt ==  N_dr / tile_sz)) {
+        
+        while(!ready) wait(); // wait to send the next SRAM block until sending thread
+                              // has finished sending the current SRAM block to maestro
+        ready = 0;
+        if(buffer_opt) {
+          weight_buf = weight_blk_sr1;
+          activation_buf = activation_blk_sr1;
+        } else {
+          weight_buf = weight_blk_sr2;
+          activation_buf = activation_blk_sr2;
+        }
+
+        start_send = 1;
+        buffer_opt = !buffer_opt; // switch buffers
         m_cnt = 0;
         n_cnt = 0;
       }
+    
          
       end = sc_time_stamp();
       io_time += (end - start).to_default_time_units();
@@ -194,6 +252,7 @@ SC_MODULE(SRAM) {
       idle_time += (end - start).to_default_time_units();
     }
   }
+
 
 
   void receive_result() {
