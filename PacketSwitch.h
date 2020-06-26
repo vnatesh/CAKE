@@ -33,19 +33,13 @@ typedef NVINT32  AccumType;
 typedef typename nvhls::nv_scvector<nvhls::nv_scvector <AccumType, tile_sz>, tile_sz> VectorType;
 
 VectorType TileMul(VectorType mat_A, VectorType mat_B) {
-  // mat_A _N*_M
-  // mat_B _M*_P
-  // mat_C _N*_P
-  int _N = tile_sz;
-  int _M = tile_sz;
-  int _P = tile_sz;
   
   VectorType mat_C; 
 
-  for (int i = 0; i < _N; i++) {
-    for (int j = 0; j < _P; j++) {
+  for (int i = 0; i < tile_sz; i++) {
+    for (int j = 0; j < tile_sz; j++) {
       mat_C[i][j] = 0;
-      for (int k = 0; k < _M; k++) {
+      for (int k = 0; k < tile_sz; k++) {
         mat_C[i][j] += mat_A[i][k]*mat_B[k][j];
       }
     }
