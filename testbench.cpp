@@ -160,11 +160,6 @@ int sc_main(int argc, char *argv[]) {
   nvhls::set_random_seed();
   testbench my_testbench("my_testbench");
 
-  // vector<vector<vector<vector<PacketSwitch::AccumType>>>> cbmat(NUM_PODS,
-  //                   vector<vector<vector<PacketSwitch::AccumType>>>(alpha * POD_SZ, 
-  //                           vector<vector<PacketSwitch::AccumType>>(tile_sz, 
-  //                                   vector<PacketSwitch::AccumType>(tile_sz, 0))));
-
   for(int j = 0; j < NUM_PODS; j++) {
     for(int i = 0; i < POD_SZ; i++) {
       my_testbench.maestro.mb[j][i]->id = i;
@@ -173,17 +168,15 @@ int sc_main(int argc, char *argv[]) {
 
     my_testbench.maestro.cb[j]->id = 2*POD_SZ;
 
-    vector<vector<vector<vector<vector<PacketSwitch::AccumType>>>>> cbmat(N_dr / N_sr, 
-                    vector<vector<vector<vector<PacketSwitch::AccumType>>>>(K_dr / K_sr,
-                            vector<vector<vector<PacketSwitch::AccumType>>>(alpha * POD_SZ,
-                                    vector<vector<PacketSwitch::AccumType>>(tile_sz, 
-                                            vector<PacketSwitch::AccumType>(tile_sz, 0)))));
+    vector<vector<vector<PacketSwitch::Packet>>> acc_buf(N_dr / N_sr,
+          vector<vector<PacketSwitch::Packet>>(K_dr / K_sr, 
+              vector<PacketSwitch::Packet>(N_sr / tile_sz)));
 
-    my_testbench.maestro.cb[j]->cb_mat = cbmat;
+    my_testbench.maestro.cb[j]->acc_buf = acc_buf;
   }
 
   // TODO :  M, N, and K are set in arch.h for now. Later, they need to be dims of the 
-  // actually weight/data, which changes every DNN layer
+  // actual weight/data, which changes every DNN layer
   cout << M << " " << K << " " << N << endl;
   // Create weight and activation matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
@@ -228,7 +221,7 @@ int sc_main(int argc, char *argv[]) {
 
 
   // PERFORMANCE COUNTERS
-  int tput = 0;
+  // int tput = 0;
 
   // tput = (double) (((double) my_testbench.dram.packet_counter_send) / 
   //         ((double) my_testbench.dram.io_time_send));
