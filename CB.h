@@ -13,8 +13,13 @@ SC_MODULE(CB)
   Connections::In<PacketSwitch::Packet>  packet_in;
   Connections::Out<PacketSwitch::Packet>  packet_out;
 
-  // vector<vector<vector<PacketSwitch::AccumType>>> cb_mat; 
-  vector<vector<vector<vector<vector<PacketSwitch::AccumType>>>>> cb_mat; 
+
+
+// If any tile within the buffer has been accumulated (K / K_sr) times:
+//     Send the completed accumulation tile to SRAM
+
+  // vector<vector<vector<PacketSwitch::AccumType>>> acc_buf; 
+  vector<vector<vector<PacketSwitch::Packet>>> acc_buf; 
   PacketSwitch::ID_type id;
 
   double io_time = 0;
@@ -51,6 +56,8 @@ SC_MODULE(CB)
 
     struct timeval start, end;
 
+    int m_ind;
+    int n_ind;
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
@@ -58,14 +65,24 @@ SC_MODULE(CB)
         gettimeofday (&start, NULL);
         if(p_in.dst == p_in.CB && p_in.d_type == 2) { // dst is cb and packet is result type
           
+          m_ind = (p_in.X % (M_dr/tile_sz)) / (M_sr/tile_sz);
+          n_ind = (p_in.Y % (N_dr/tile_sz)) / (N_sr/tile_sz);
           // if(DEBUG) cout << "Partial result received at CB " << p_in.dstPod << "\n";
           if(DEBUG) cout << "Partial result received at CB " << p_in.x << "\n";
           for (int i = 0; i < tile_sz; i++) {
-             for (int j = 0; j < tile_sz; j++) {
-              cb_mat[N_cnt_dr][M_cnt_dr][tile_cnt][i][j] += p_in.data[i][j];
+            for (int j = 0; j < tile_sz; j++) {
+              acc_buf[n_ind][m_ind][p_in.y].data[i][j] += p_in.data[i][j];
             }
           }
 
+          acc_buf[n_ind][m_ind][p_in.y].X = p_in.X;
+          acc_buf[n_ind][m_ind][p_in.y].Y = p_in.Y;
+          acc_buf[n_ind][m_ind][p_in.y].Z = p_in.Z;
+          acc_buf[n_ind][m_ind][p_in.y].x = p_in.x;
+          acc_buf[n_ind][m_ind][p_in.y].y = p_in.y;
+          acc_buf[n_ind][m_ind][p_in.y].z = p_in.z;
+          acc_buf[n_ind][m_ind][p_in.y].CB = p_in.CB;
+          acc_buf[n_ind][m_ind][p_in.y].SRAM = p_in.SRAM;
           accum_cnt++;
         }
 
@@ -110,22 +127,18 @@ SC_MODULE(CB)
           for(int n = 0; n < (N_dr / N_sr); n++) {
           
             for(int t = 0; t < (alpha * POD_SZ); t++) {
+
               gettimeofday (&start, NULL);
+              p_out = acc_buf[n][m][t]; // this sets X,Y,Z,x,y,z headers for final result output
 
               for (int i = 0; i < tile_sz; i++) {
                  for (int j = 0; j < tile_sz; j++) {
-                  p_out.data[i][j] = cb_mat[n][m][t][i][j];
-                  cb_mat[n][m][t][i][j] = 0; // set cb_mat to 0;
+                  acc_buf[n][m][t].data[i][j] = 0; // reset acc_buf to 0;
                 }
               }
 
-              // p_out.srcPod = p_in.dstPod;
-              // p_out.dst = INT_MAX; // destination is SRAM
-              // p_out.dstPod = 0; // destination pod is default 0 for SRAM
-              p_out.x = p_in.x;
-              p_out.src = p_in.CB;
-              // p_out.src = p_in.id;
-              p_out.dst = p_in.SRAM;
+              p_out.src = p_out.CB;
+              p_out.dst = p_out.SRAM;
               p_out.d_type = 2; // result type                    
               
               // if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
