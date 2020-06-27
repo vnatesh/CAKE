@@ -45,8 +45,8 @@ SC_MODULE(DRAM) {
     // Wait for initial reset.
     wait(20.0, SC_NS);
 
-    struct timeval start, end;
-    gettimeofday (&start, NULL);
+    sc_time start, end;
+    start = sc_time_stamp();
 
     for (int n1 = 0; n1 < (N / N_dr); n1++) {
 
@@ -80,11 +80,13 @@ SC_MODULE(DRAM) {
               for (int i = 0; i < tile_sz; i++) {
                 for (int j = 0; j < tile_sz; j++) {
                   p_out1.data[i][j] = weights[(m1 * M_dr) + (m * tile_sz) + i][(k1 * K_dr) + (k * tile_sz) + j];
-                  p_out1.X = (m1 * M_dr) + (m);
-                  p_out1.Y = -1;
-                  p_out1.Z = (k1 * K_dr) + (k);
                 }
               }
+
+              p_out1.X = (m1 * M_dr/tile_sz) + (m);
+              p_out1.Y = -1;
+              p_out1.Z = (k1 * K_dr/tile_sz) + (k);
+
               // wait(10);
               wait();
 
@@ -103,11 +105,12 @@ SC_MODULE(DRAM) {
               for (int i = 0; i < tile_sz; i++) {
                 for (int j = 0; j < tile_sz; j++) {
                   p_out2.data[i][j] = activations[(k1 * K_dr) + (k * tile_sz) + i][(n1 * N_dr) + (n * tile_sz) + j];
-                  p_out2.X = -1;
-                  p_out2.Y = (n1 * N_dr) + (n);
-                  p_out2.Z = (k1 * K_dr) + (k);
                 }
               }
+
+              p_out2.X = -1;
+              p_out2.Y = (n1 * N_dr/tile_sz) + (n);
+              p_out2.Z = (k1 * K_dr/tile_sz) + (k);
 
               // wait(10);
               wait();
@@ -122,9 +125,8 @@ SC_MODULE(DRAM) {
       }
     }
 
-    gettimeofday (&end, NULL);
-    io_time_send += ((((end.tv_sec - start.tv_sec) * 1000000L)
-        + (end.tv_usec - start.tv_usec)) / 1000000.0);
+    end = sc_time_stamp();
+    io_time_send += (end - start).to_default_time_units();
   }
 
 
@@ -134,79 +136,32 @@ SC_MODULE(DRAM) {
     packet_in.Reset();
     wait(20.0, SC_NS);
 
+    int p_cnt = 0;
+    int m;
+    int n;
 
-    int M_cnt = 0;
-    int N_cnt = 0;
-    int M_dr_cnt[NUM_PODS] = {0};
-    int N_dr_cnt[NUM_PODS] = {0};
-    int pod_cnt = 0;
-    int pod_id;
-    bool snake = false;
+    sc_time start, end;
+    start = sc_time_stamp();
 
-    struct timeval start, end;
-
-    // Store the completed sum in the final result [m*Wy:(m+1)*Wy, n*Dx: (n+1)Dx]
-    gettimeofday (&start, NULL);
     while(1) {
 
       if(packet_in.PopNB(p_in)) {
 
         packet_counter_recv++;
-        pod_id = p_in.x;
+        m = p_in.X;
+        n = p_in.Y;
 
         for (int i = 0; i < tile_sz; i++) {
           for (int j = 0; j < tile_sz; j++) {
-            result[(M_cnt * M_dr) + (M_dr_cnt[pod_id] * M_sr) + (pod_id * tile_sz) + i][(N_cnt * N_dr) + (N_dr_cnt[pod_id] * tile_sz) + j] = p_in.data[i][j];            
+            result[m * tile_sz + i][n * tile_sz + j] = p_in.data[i][j];            
           }
         }
 
-        N_dr_cnt[pod_id]++;
+        p_cnt++;
 
-        if(N_dr_cnt[pod_id] == (N_dr / tile_sz)) {
-          N_dr_cnt[pod_id] = 0;
-          M_dr_cnt[pod_id]++;
-        }
-
-        if(M_dr_cnt[pod_id] == (M_dr / M_sr)) {
-          N_dr_cnt[pod_id] = 0;
-          M_dr_cnt[pod_id] = 0;
-          pod_cnt++;
-        }
-
-        if(pod_cnt == NUM_PODS) {
-          // reset pod counters
-          for(int i = 0; i < NUM_PODS; i++) {
-            M_dr_cnt[i] = 0;
-          }
-          for(int i = 0; i < NUM_PODS; i++) {
-            N_dr_cnt[i] = 0;
-          }
-
-          pod_cnt = 0;
-          M_cnt = snake ? M_cnt-1 : M_cnt+1; 
-        }
-
-        if((!snake && (M_cnt == (M / M_dr))) || (snake && M_cnt == -1)) {
-          // reset pod counters
-          for(int i = 0; i < NUM_PODS; i++) {
-            M_dr_cnt[i] = 0;
-          }
-          for(int i = 0; i < NUM_PODS; i++) {
-            N_dr_cnt[i] = 0;
-          }
-
-          pod_cnt = 0;
-          M_cnt = snake ? 0 : M_cnt-1; 
-          N_cnt++;
-          snake = !snake;
-        }
-
-
-        if(N_cnt == (N / N_dr)) {
-          gettimeofday (&end, NULL);
-          io_time_recv += ((((end.tv_sec - start.tv_sec) * 1000000L)
-                    + (end.tv_usec - start.tv_usec)) / 1000000.0);
-
+        if(p_cnt == ((M / tile_sz) * (N / tile_sz))) {
+          end = sc_time_stamp();
+          io_time_recv += (end - start).to_default_time_units();
           cout << "\n\nMAESTRO MMM RESULT\n\n";
           PrintMat(result); 
           sc_stop(); // STOP the stimulation here
