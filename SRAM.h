@@ -43,7 +43,7 @@ SC_MODULE(SRAM) {
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
-    SC_THREAD(receive_result);
+    SC_THREAD(aggregate_results);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
   }
@@ -180,7 +180,7 @@ SC_MODULE(SRAM) {
 
       if(sram_dram_in.PopNB(p_in)) {
 
-        cout << "SRAM Receive packet from DRAM\n"; 
+        // cout << "SRAM Receive packet from DRAM\n"; 
 
 
         start = sc_time_stamp();
@@ -255,30 +255,44 @@ SC_MODULE(SRAM) {
 
 
 
-  void receive_result() {
+  void aggregate_results() {
 
     sram_dram_out.Reset();
     packet_in.Reset();
     wait(20.0, SC_NS);
 
-    PacketSwitch::Packet p_in2;
+    PacketSwitch::Packet p_in;
     vector<vector<PacketSwitch::Packet>> result_blk_sr(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
 
     // ofstream myfile;
     // myfile.open ("sram_traffic.csv");
 
+    int p_cnt = 0;
+
     while(1) {
 
-      if(packet_in.PopNB(p_in2)) {
-
-        sram_dram_out.Push(p_in2);
+      if(packet_in.PopNB(p_in)) {
+        // collect an entire DRAM block, then send to DRAM
+        result_blk_sr[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
         result_cnt++;
+        p_cnt++;
+
+        if(p_cnt == ((M_dr/tile_sz) * (N_dr/tile_sz))) {
+          for(int m = 0; m < M_dr/tile_sz; m++) {
+            for(int n = 0; n < N_dr/tile_sz; n++) {
+              sram_dram_out.Push(result_blk_sr[m][n]);
+              wait();
+            }
+          }
+
+          p_cnt = 0;
+        }
       } 
 
       wait(); 
-      // wait_cnt++; // use wait cnt as a way to synchronize tracking of the current time and result_cnt
+      // wait_cnt++; 
       // if(wait_cnt % 10 == 0) {
-      //   cout << sc_time_stamp().to_default_time_units() << " " << result_cnt << "\n";
+      // cout << sc_time_stamp().to_default_time_units() << " " << result_cnt << "\n";
       //   myfile << sc_time_stamp().to_default_time_units() << " " << result_cnt << "\n";
       // }
 
