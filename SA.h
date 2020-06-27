@@ -85,8 +85,6 @@ SC_MODULE(SA)
         compute_time += (end - start).to_default_time_units();
         mult_cnt++;
         start = sc_time_stamp();
-        // packet_reg.srcPod = packet_reg.dstPod; // send to CB in the same pod
-        // packet_reg.dst = 2*POD_SZ; // destination is CB
         packet_reg.X = weight.X; // set X val in packet to that of weight. Now all dims are in result header
         packet_reg.src = packet_reg.dst;
         packet_reg.dst = packet_reg.CB;
@@ -94,7 +92,6 @@ SC_MODULE(SA)
 
         if(DEBUG) cout << "SA " << id << " Pod " << packet_reg.x << " sending result to CB\n";
         packet_out.Push(packet_reg);
-        wait();
         end = sc_time_stamp();
         io_time += (end - start).to_default_time_units();
         is_act_in = 0;
