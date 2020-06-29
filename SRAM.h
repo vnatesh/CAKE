@@ -26,9 +26,13 @@ SC_MODULE(SRAM) {
   int wait_cnt = 0;
   bool ready = 1;
   bool start_send = 0;
+  bool ready_result = 1;
+  bool start_send_result = 0;
+
 
   vector<vector<PacketSwitch::Packet>> weight_buf;
   vector<vector<PacketSwitch::Packet>> activation_buf;
+  vector<vector<PacketSwitch::Packet>> result_buf;
 
 
   // 0-3 is MB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
@@ -43,9 +47,14 @@ SC_MODULE(SRAM) {
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
-    SC_THREAD(aggregate_results);
+    SC_THREAD(recv_result_maestro);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+    SC_THREAD(send_result_dram);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
   }
 
 
@@ -182,7 +191,6 @@ SC_MODULE(SRAM) {
 
         // cout << "SRAM Receive packet from DRAM\n"; 
 
-
         start = sc_time_stamp();
         if(p_in.d_type == 0) {
 
@@ -255,36 +263,76 @@ SC_MODULE(SRAM) {
 
 
 
-  void aggregate_results() {
+
+  void send_result_dram() {
 
     sram_dram_out.Reset();
+    wait(20.0, SC_NS);
+
+    while(1) {
+      if(start_send_result) {  
+
+          for(int m = 0; m < M_dr/tile_sz; m++) {
+            for(int n = 0; n < N_dr/tile_sz; n++) {
+              sram_dram_out.Push(result_buf[m][n]);
+              wait();
+              cout << "SRAM send result to DRAM\n"; 
+            }
+          }
+
+        ready_result = 1;
+        start_send_result = 0;
+      }
+
+      wait();
+    }
+  }
+
+
+  void recv_result_maestro() {
+
     packet_in.Reset();
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
-    vector<vector<PacketSwitch::Packet>> result_blk_sr(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+
+    vector<vector<PacketSwitch::Packet>> result_blk_sr1(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+    vector<vector<PacketSwitch::Packet>> result_blk_sr2(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
 
     // ofstream myfile;
     // myfile.open ("sram_traffic.csv");
 
     int p_cnt = 0;
+    bool buffer_opt_result = 1;
 
     while(1) {
 
       if(packet_in.PopNB(p_in)) {
         // collect an entire DRAM block, then send to DRAM
-        result_blk_sr[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
+        cout << "SRAM Receive result from Maestro\n"; 
+
+        if(buffer_opt_result) {
+          result_blk_sr1[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
+        } else {
+          result_blk_sr2[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
+        }
+
         result_cnt++;
         p_cnt++;
 
         if(p_cnt == ((M_dr/tile_sz) * (N_dr/tile_sz))) {
-          for(int m = 0; m < M_dr/tile_sz; m++) {
-            for(int n = 0; n < N_dr/tile_sz; n++) {
-              sram_dram_out.Push(result_blk_sr[m][n]);
-              wait();
-            }
+
+          while(!ready_result) wait(); // wait to send the next SRAM block until sending thread
+                                // has finished sending the current SRAM block to maestro
+          ready_result = 0;
+          if(buffer_opt_result) {
+            result_buf = result_blk_sr1;
+          } else {
+            result_buf = result_blk_sr2;
           }
 
+          start_send_result = 1;
+          buffer_opt_result = !buffer_opt_result; // switch buffers
           p_cnt = 0;
         }
       } 
