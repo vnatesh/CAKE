@@ -83,7 +83,7 @@ SC_MODULE(SRAM) {
               k1 = (K_dr / K_sr) - k_prime - 1;
             }
 
-            // send activations first to load the MBs with an entire SRAM Block
+            // send activations first to load the MBs with a region of activations
             if(DEBUG) cout << "Sending SRAM activation block from SRAM to Maestro" << "\n";
             for (int n = 0; n < (N_sr / tile_sz); n++){
               for (int k = 0; k < (K_sr / tile_sz); k++) {
@@ -95,10 +95,9 @@ SC_MODULE(SRAM) {
                 p_out2.MB = k; 
                 p_out2.SA = k + POD_SZ; 
                 p_out2.SRAM = INT_MAX; // sram src
-                p_out2.ttl = M_dr / M_sr; // each MB stores (N_sr/tile_sz) data tiles for ttl rounds
+                p_out2.ttl = M_dr / M_sr; // each MB stores (N_sr/tile_sz) data tiles that are reused ttl times
                 p_out2.src = INT_MAX; // sram src
                 p_out2.dst = k; // dst is MB
-                // p_out2.srcPod = 0;
                 p_out2.d_type = 1;
                 p_out2.bcast = 1;
                 packet_out.Push(p_out2);
@@ -115,8 +114,18 @@ SC_MODULE(SRAM) {
             if((n1 % 2) == 0) {
               m1 = m_prime;
             } else {
+              if(m_prime == 0) { // skip sending this weight strip to allow reuse in MBs
+                continue;
+              }
               m1 = (M_dr / M_sr) - m_prime - 1;
             }
+
+            int ttl;
+            if(m_prime ==  (M_dr / M_sr) - 1) 
+              ttl = 0; // weight ttl set to 0 except when new region about to start
+            else 
+              ttl = 1; // weight ttl set to 1 to indicate reuse when new region is beginning
+
 
             for (int k_prime = 0; k_prime < (K_dr / K_sr); k_prime++) {
 
@@ -139,16 +148,14 @@ SC_MODULE(SRAM) {
                   p_out1.MB = k; 
                   p_out1.SA = k + POD_SZ; 
                   p_out1.SRAM = INT_MAX; // sram src
-                  p_out1.ttl = 0; // weight ttl set to 0 except when new region about to start
+                  p_out1.ttl = ttl;
                   p_out1.src = INT_MAX; // sram src
                   p_out1.dst = k; // dst is MB
-                  // p_out1.srcPod = 0; // sram default src pod
-                  // p_out1.dstPod = m;
                   p_out1.d_type = 0;
                   p_out1.bcast = 0;
                   packet_out.Push(p_out1); 
                   packet_counter++;
-                  // cout << "SRAM send packet to maestro\n"; 
+                  // cout << "SRAM send packet to maestro " << sc_time_stamp() << "\n"; 
                   wait();
                 }
               }
@@ -189,7 +196,7 @@ SC_MODULE(SRAM) {
 
       if(sram_dram_in.PopNB(p_in)) {
 
-        // cout << "SRAM Receive packet from DRAM\n"; 
+        // cout << "SRAM Receive packet from DRAM " << sc_time_stamp() << "\n";  
 
         start = sc_time_stamp();
         if(p_in.d_type == 0) {
@@ -276,7 +283,7 @@ SC_MODULE(SRAM) {
             for(int n = 0; n < N_dr/tile_sz; n++) {
               sram_dram_out.Push(result_buf[m][n]);
               wait();
-              cout << "SRAM send result to DRAM\n"; 
+              // cout << "SRAM send result to DRAM\n"; 
             }
           }
 
@@ -309,7 +316,15 @@ SC_MODULE(SRAM) {
 
       if(packet_in.PopNB(p_in)) {
         // collect an entire DRAM block, then send to DRAM
-        cout << "SRAM Receive result from Maestro\n"; 
+        // cout << "SRAM Receive result from Maestro\n"; 
+
+        for(int i = 0; i < tile_sz; i++) {
+          for(int j = 0; j < tile_sz; j++) {
+            // cout << p_in.data[i][j] << " "; 
+          }
+          // cout << "\n";
+        }
+        // cout << "\n";
 
         if(buffer_opt_result) {
           result_blk_sr1[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
