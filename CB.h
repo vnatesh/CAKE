@@ -52,12 +52,10 @@ SC_MODULE(CB)
     int K_cnt_sr = 0;
     int M_cnt_dr = 0;
     int N_cnt_dr = 0;
-    bool snake_sr = false;
-
-    struct timeval start, end;
-
     int m_ind;
     int n_ind;
+
+    struct timeval start, end;
 
     while(1) {
       if(packet_in.PopNB(p_in)) {
@@ -105,18 +103,16 @@ SC_MODULE(CB)
 
       if(K_cnt_sr == (K_dr / K_sr)) {
         K_cnt_sr = 0;
-        M_cnt_dr = snake_sr ? M_cnt_dr-1 : M_cnt_dr+1; // if going up in opp dir, then its not ++..should be --
+        M_cnt_dr++; 
       }
 
-      if((!snake_sr && (M_cnt_dr == (M_dr / M_sr))) || (snake_sr && M_cnt_dr == -1)) {
-        M_cnt_dr = snake_sr ? 0 : M_cnt_dr-1; // if going up in opp dir, then its not 0..should be (M_dr / M_sr) - 1
+      if(M_cnt_dr == (M_dr / M_sr)) {
+        M_cnt_dr = 0;
         N_cnt_dr++;
-        snake_sr = !snake_sr;
       }
 
       if(N_cnt_dr == (N_dr / N_sr)) {
         N_cnt_dr = 0;
-        snake_sr = false;
         K_cnt++; // counter for number of DRAM blocks in K dir of full computation space
       }
 
@@ -132,7 +128,7 @@ SC_MODULE(CB)
               p_out = acc_buf[n][m][t]; // this sets X,Y,Z,x,y,z headers for final result output
 
               for (int i = 0; i < tile_sz; i++) {
-                 for (int j = 0; j < tile_sz; j++) {
+                for (int j = 0; j < tile_sz; j++) {
                   acc_buf[n][m][t].data[i][j] = 0; // reset acc_buf to 0;
                 }
               }
@@ -141,10 +137,21 @@ SC_MODULE(CB)
               p_out.dst = p_out.SRAM;
               p_out.d_type = 2; // result type                    
               
-              // if(DEBUG) cout <<  "CB " << p_out.srcPod << " sending tile " << t << " to SRAM\n";
               if(DEBUG) cout <<  "CB " << p_out.x << " sending tile " << t << " to SRAM\n";
               packet_out.Push(p_out);
               packet_counter++;
+
+              // if(p_out.x == 0) {
+              //   packet_counter++;
+              //   for(int i = 0; i < tile_sz; i++) {
+              //     for(int j = 0; j < tile_sz; j++) {
+              //       cout << p_out.data[i][j] << " "; 
+              //     }
+              //     cout << "\n";
+              //   }
+              //   cout << "cnt = " << packet_counter << "\n";
+              // }
+
               wait();
 
               gettimeofday (&end, NULL);
