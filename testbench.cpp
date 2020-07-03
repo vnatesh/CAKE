@@ -169,7 +169,7 @@ int sc_main(int argc, char *argv[]) {
     my_testbench.maestro.cb[j]->id = 2*POD_SZ;
 
     vector<vector<vector<PacketSwitch::Packet>>> acc_buf(N_dr / N_sr,
-          vector<vector<PacketSwitch::Packet>>(K_dr / K_sr, 
+          vector<vector<PacketSwitch::Packet>>(M_dr / M_sr, 
               vector<PacketSwitch::Packet>(N_sr / tile_sz)));
 
     my_testbench.maestro.cb[j]->acc_buf = acc_buf;
@@ -183,7 +183,6 @@ int sc_main(int argc, char *argv[]) {
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
                                                                 vector<PacketSwitch::AccumType>(N, 0));
-  
   my_testbench.dram.result = result;
   vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
