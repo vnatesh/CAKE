@@ -6,13 +6,10 @@
 
 template<typename T, typename U>
 vector<vector<U>> MatMul(vector<vector<T>> mat_A, vector<vector<T>> mat_B) {
-  // mat_A _N*_M
-  // mat_B _M*_P
-  // mat_C _N*_P
+
   int _N = (int) mat_A.size();
   int _M = (int) mat_A[0].size();
   int _P = (int) mat_B[0].size();
-  
   assert(_M == (int) mat_B.size());
   vector<vector<U>> mat_C(_N, vector<U>(_P, 0)); 
 

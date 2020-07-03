@@ -73,8 +73,6 @@ SC_MODULE(MB)
           packet_out.Push(packet_reg);                  
           wait();
 
-          // (p_in.Z % (K_dr/tile_sz)) / (K_sr/tile_sz);
-
           // send data packets to SA, decrement ttl 
           for(int i = 0; i < N_sr/tile_sz; i++) {
             packet_reg = act_buffer[ind][i];
@@ -122,7 +120,6 @@ SC_MODULE(MB)
         a_cnt = 0;
         weight_reuse = false;
       }
-
 
       wait();
     }

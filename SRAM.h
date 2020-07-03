@@ -114,18 +114,19 @@ SC_MODULE(SRAM) {
             if((n1 % 2) == 0) {
               m1 = m_prime;
             } else {
-              if(m_prime == 0) { // skip sending this weight strip to allow reuse in MBs
-                continue;
-              }
               m1 = (M_dr / M_sr) - m_prime - 1;
             }
 
-            int ttl;
-            if(m_prime ==  (M_dr / M_sr) - 1) 
-              ttl = 0; // weight ttl set to 0 except when new region about to start
-            else 
-              ttl = 1; // weight ttl set to 1 to indicate reuse when new region is beginning
+            if(m_prime == 0 && n1 != 0) { // skip sending this weight strip to allow reuse in MBs
+              continue;
+            }
 
+            int ttl;
+            if((m_prime ==  ((M_dr / M_sr) - 1)) && (n1 != ((N_dr / N_sr) - 1))) {
+              ttl = 1; // weight ttl set to 1 to indicate reuse when new region is beginning
+            } else { 
+              ttl = 0; // weight ttl set to 0 except when new region about to start
+            }
 
             for (int k_prime = 0; k_prime < (K_dr / K_sr); k_prime++) {
 
@@ -279,13 +280,13 @@ SC_MODULE(SRAM) {
     while(1) {
       if(start_send_result) {  
 
-          for(int m = 0; m < M_dr/tile_sz; m++) {
-            for(int n = 0; n < N_dr/tile_sz; n++) {
-              sram_dram_out.Push(result_buf[m][n]);
-              wait();
-              // cout << "SRAM send result to DRAM\n"; 
-            }
+        for(int m = 0; m < M_dr/tile_sz; m++) {
+          for(int n = 0; n < N_dr/tile_sz; n++) {
+            sram_dram_out.Push(result_buf[m][n]);
+            wait();
+            // cout << "SRAM send result to DRAM\n"; 
           }
+        }
 
         ready_result = 1;
         start_send_result = 0;

@@ -13,8 +13,6 @@ SC_MODULE(CB)
   Connections::In<PacketSwitch::Packet>  packet_in;
   Connections::Out<PacketSwitch::Packet>  packet_out;
 
-
-
 // If any tile within the buffer has been accumulated (K / K_sr) times:
 //     Send the completed accumulation tile to SRAM
 
