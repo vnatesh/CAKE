@@ -1,7 +1,7 @@
 import sys
 import os
 import subprocess
-
+import time
 
 arch = '''#ifndef __ARCH_H__
 #define __ARCH_H__
@@ -30,50 +30,54 @@ const static int K_sr = Wz;
 const static int N_sr = Dx;
 '''
 
+MAX = 3
 
-for m in range(1,4):
-	for k in range(1,4):
-		for n in range(1,4):
-			a = arch + '''
-const static int M_dr = M_sr*%d;
-const static int K_dr = K_sr*%d;
-const static int N_dr = N_sr*%d;
-
-const static int M = M_dr;
-const static int K = K_dr;
-const static int N = N_dr;
-#endif\n\n''' % (m,k,n)
-			os.remove("arch.h")
-			f = open("arch.h", 'w')
-			f.write(a)
-			subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1'], shell=True)
-			f.close()
-
-# for m in range(1,4):
-# 	for k in range(1,4):
-# 		for n in range(1,4):
-# 			for M in range(1,4):
-# 				for K in range(1,4):
-# 					for N in range(1,4):
-# 						a = arch + '''
-# const static int M_dr = M_sr*%d;
-# const static int K_dr = K_sr*%d;
-# const static int N_dr = N_sr*%d;
+# for m in range(1,MAX+1):
+# 	for k in range(1,MAX+1):
+# 		for n in range(1,MAX+1):
+# 			a = arch + '''
+# const static int M_dr = M_sr;
+# const static int K_dr = K_sr;
+# const static int N_dr = N_sr;
 
 # const static int M = M_dr*%d;
 # const static int K = K_dr*%d;
 # const static int N = N_dr*%d;
-# #endif\n\n''' % (m,k,n,M,K,N)
-# 						os.remove("arch.h")
-# 						f = open("arch.h", 'w')
-# 						f.write(a)
-# 						subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1'], shell=True)
-# 						f.close()
+# #endif\n\n''' % (m,k,n)
+# 			os.remove("arch.h")
+# 			f = open("arch.h", 'w')
+# 			f.write(a)
+# 			subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1 &'], shell=True)
+# 			f.close()
+
+for m in range(1,MAX+1):
+	for k in range(1,MAX+1):
+		for n in range(1,MAX+1):
+			for M in range(1,MAX+1):
+				for K in range(1,MAX+1):
+					for N in range(1,MAX+1):
+						a = arch + '''
+const static int M_dr = M_sr*%d;
+const static int K_dr = K_sr*%d;
+const static int N_dr = N_sr*%d;
+
+const static int M = M_dr*%d;
+const static int K = K_dr*%d;
+const static int N = N_dr*%d;
+#endif\n\n''' % (m,k,n,M,K,N)
+						os.remove("arch.h")
+						f = open("arch.h", 'w')
+						f.write(a)
+						subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1 &'], shell=True)
+						f.close()
+
+
+time.sleep(320)
 
 
 f = open("results.txt", 'r')
 results = f.read().split()
-if(all([i == '1' for i in results])):
+if(all([i == '1' for i in results]) and len(results) == MAX**6):
 	print "ALL TESTS PASSED"
 else:
 	print "FAILED"
