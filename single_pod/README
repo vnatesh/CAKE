@@ -1,0 +1,9 @@
+README:
+
+- Single Pod i.e. each OB within an SRAM block can only be executed one at a time in k-first snaking order on the single pod, which may be of shape 2x2, 4x4, etc. 
+
+- SRAM is not double buffered for receiving weight/data from DRAM and sending them to the pod. However, it does double buffer the receiving of results from the ABs and sending final results to DRAM.
+
+- Data reuse is implemented within an OB, but not accross SRAM blocks. 
+
+- Weight reuse is not implemented
