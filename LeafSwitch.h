@@ -1,3 +1,5 @@
+
+
 #ifndef __LEAFSWITCH_H__
 #define __LEAFSWITCH_H__
 #include "arch.h"
@@ -17,7 +19,7 @@ SC_MODULE(LeafSwitch)
     Connections::Out<PacketSwitch::Packet>    sa_out;
     Connections::Out<PacketSwitch::Packet>    parent_out;
 
-    PacketSwitch::ID_type   leaf_id;
+    PacketSwitch::ID_type   id;
 
     SC_HAS_PROCESS(LeafSwitch);
     LeafSwitch(sc_module_name name_) : sc_module(name_) {
@@ -41,12 +43,16 @@ SC_MODULE(LeafSwitch)
 
           if(parent_in.PopNB(p_in)) {
 
-            if(p_in.d_type == 0) {
-              cout << "leaf " << leaf_id << "dst " << p_in.dst << "\n";
-            }
 
-            if(p_in.dst == leaf_id) { // drop packet if not meant for this leaf
-              sb_out.Push(p_in);
+            if(p_in.d_type == 1) {
+              if(p_in.bcast[id + NUM_SA - 1]) {
+                p_in.bcast[id + NUM_SA - 1] = 0;
+                sb_out.Push(p_in);
+              }
+            } else if(p_in.d_type == 0) {
+              if(p_in.dst == id) { // drop packet if not meant for this leaf
+                sb_out.Push(p_in);
+              }
             }
           }
 
