@@ -65,8 +65,6 @@ SC_MODULE(PacketSwitch)
     sc_in_clk     clk;
     sc_in<bool>   rst;
 
-    // typedef NVINT8   InputType;
-    // typedef NVINT8   ActType;
     typedef NVINT8   WeightType;    
     typedef NVINT32  AccumType;
     typedef NVINT32  AddrType;
@@ -78,42 +76,36 @@ SC_MODULE(PacketSwitch)
     class Packet: public nvhls_message {
      public:
         VectorType data;
-        // AddrType srcPod;
-        // AddrType dstPod;
         AddrType X;
         AddrType Y;
         AddrType Z;
         AddrType x;
         AddrType y;
         AddrType z;
-        AddrType MB;
+        AddrType SB;
         AddrType SA;
-        AddrType CB;
+        AddrType AB;
         AddrType SRAM;
-        AddrType ttl;
         AddrType src;
         AddrType dst;
         ID_type d_type; // weight (0), activation (1), result (2)
         Bcast bcast;
 
-        static const unsigned int width = ID_type::width + 13 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
+        static const unsigned int width = ID_type::width + 12 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
 
         template <unsigned int Size>
         void Marshall(Marshaller<Size>& m) {
             m& data;
-            // m& srcPod;
-            // m& dstPod;
             m& X;
             m& Y;
             m& Z;
             m& x;
             m& y;
             m& z;
-            m& MB;
+            m& SB;
             m& SA;
-            m& CB;
+            m& AB;
             m& SRAM;
-            m& ttl;
             m& src;
             m& dst;
             m& d_type;
@@ -121,13 +113,18 @@ SC_MODULE(PacketSwitch)
         }
     };
     
+    ID_type AB_id; // id for the associated AB
+    ID_type level; // id for level of this switch in the h-tree
 
-    Connections::In<Packet>    maestro_in_port;
-    Connections::Out<Packet>   maestro_out_port;
+    Connections::In<Packet>   left_in;
+    Connections::In<Packet>   right_in;
+    Connections::In<Packet>   parent_in;
+    // Connections::In<Packet>   ab_in;
 
-    Connections::In<Packet>    in_ports[NUM_PODS][2*POD_SZ + NUM_CB];
-    Connections::Out<Packet>   out_ports[NUM_PODS][2*POD_SZ + NUM_CB];
-
+    Connections::Out<Packet>    left_out; 
+    Connections::Out<Packet>    right_out;
+    Connections::Out<Packet>    parent_out;
+    // Connections::Out<Packet>    ab_out;
 
     SC_HAS_PROCESS(PacketSwitch);
     PacketSwitch(sc_module_name name_) : sc_module(name_) {
@@ -137,74 +134,113 @@ SC_MODULE(PacketSwitch)
     }
 
 
-
     void run() {
 
-        maestro_in_port.Reset();
-        maestro_out_port.Reset();
-
-        for (int j = 0; j < NUM_PODS; j++) {
-          for (int i = 0; i < 2*POD_SZ; i++) {
-            in_ports[j][i].Reset();
-            out_ports[j][i].Reset();
-          }
-          out_ports[j][2*POD_SZ].Reset();
-        }
+        left_in.Reset();
+        right_in.Reset();
+        left_out.Reset();
+        right_out.Reset();
+        parent_in.Reset();
+        parent_out.Reset();
+        // ab_in.Reset();
+        // ab_out.Reset();
 
         wait(20.0, SC_NS); // wait for reset
         
         AddrType d;
         AddrType e;
-        Packet p_in1;
-        Packet p_in2;
-
+        Packet p_in;
 
         while (1) {
+
+          if(parent_in.PopNB(p_in)) {
+
+            // if packet came from SRAM, send it down left/right children
+            if(p_in.src == INT_MAX) {
+
+              if(p_in.d_type == 1) {
+                // p_in.bcast = 0;
+                left_out.Push(p_in);
+                right_out.Push(p_in);
+              } else if(((p_in.dst >> (NUM_LEVELS - level - 1)) & 1)) {
+                left_out.Push(p_in);
+              } else {
+                right_out.Push(p_in);
+              }
+            }
+          } 
+
+          if(left_in.PopNB(p_in)) {
+
+            if(p_in.dst == INT_MAX) {
+              parent_out.Push(p_in);
+            }
+
+            else if(p_in.dst == AB_id) {
+              // accumulate partials here
+              // once you've accumed enough tiles, read AB header
+              // of result tile and send up to next AB in chain
+            }
+          }
+
+          if(right_in.PopNB(p_in)) {
+
+            if(p_in.dst == INT_MAX) {
+              parent_out.Push(p_in);
+            }
+
+            else if(p_in.dst == AB_id) {
+
+            }
+          }
+
+
+        
           // send input from SRAM to maestro
-          if(maestro_in_port.PopNB(p_in1)) {
-            // broadcast...only applies to data packets
-            if(p_in1.bcast) {
-              for (int m1 = 0; m1 < Wy / tile_sz; m1++) {
-                d = p_in1.dst;
-                // p_in1.dstPod = m1;
-                p_in1.x = m1;
-                p_in1.bcast = 0;
-                out_ports[m1][d].Push(p_in1);
-              }
-            } else {
-              d = p_in1.dst;
-              // e = p_in1.dstPod;
-              e = p_in1.x;
-              out_ports[e][d].Push(p_in1);
-            }
-            wait(3);
-          }
+          // if(maestro_in_port.PopNB(p_in1)) {
+          //   // broadcast...only applies to data packets
+          //   if(p_in1.bcast) {
+          //     for (int m1 = 0; m1 < Wy / tile_sz; m1++) {
+          //       d = p_in1.dst;
+          //       // p_in1.dstPod = m1;
+          //       p_in1.x = m1;
+          //       p_in1.bcast = 0;
+          //       out_ports[m1][d].Push(p_in1);
+          //     }
+          //   } else {
+          //     d = p_in1.dst;
+          //     // e = p_in1.dstPod;
+          //     e = p_in1.x;
+          //     out_ports[e][d].Push(p_in1);
+          //   }
+          //   wait(3);
+          // }
 
-          // handle inputs from maestro modules
-          for (int j = 0; j < NUM_PODS; j++) {
-            for (int i = 0; i < (2*POD_SZ+NUM_CB); i++) {
+          // // handle inputs from maestro modules
+          // for (int j = 0; j < NUM_PODS; j++) {
+          //   for (int i = 0; i < (2*POD_SZ+NUM_CB); i++) {
 
-              if(in_ports[j][i].PopNB(p_in2)) {
+          //     if(in_ports[j][i].PopNB(p_in2)) {
 
-                d = p_in2.dst;
-                // e = p_in2.dstPod;
-                e = p_in2.x;
+          //       d = p_in2.dst;
+          //       // e = p_in2.dstPod;
+          //       e = p_in2.x;
 
-                if(d == INT_MAX) { // if dst is SRAM addr              
-                  maestro_out_port.Push(p_in2); // This  sends value to maestro top module, 
-                                                  // which then interconnects directly to SRAM
-                } else {
-                  out_ports[e][d].Push(p_in2);
+          //       if(d == INT_MAX) { // if dst is SRAM addr              
+          //         maestro_out_port.Push(p_in2); // This  sends value to maestro top module, 
+          //                                         // which then interconnects directly to SRAM
+          //       } else {
+          //         out_ports[e][d].Push(p_in2);
 
-                  // track how often a packet is sent to the particular systolic array
-                  // if(d >= POD_SZ && d < 2*POD_SZ) {
-                  // if(e == P && d == POD_SZ) {
-                  //   cout << "switch->SA " << sc_time_stamp().to_default_time_units() << "\n";
-                  // }
-                }
-              }
-            }
-          }
+          //         // track how often a packet is sent to the particular systolic array
+          //         // if(d >= POD_SZ && d < 2*POD_SZ) {
+          //         // if(e == P && d == POD_SZ) {
+          //         //   cout << "switch->SA " << sc_time_stamp().to_default_time_units() << "\n";
+          //         // }
+          //       }
+          //     }
+          //   }
+          // }
 
           wait();
         }
