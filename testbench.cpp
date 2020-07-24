@@ -197,14 +197,14 @@ int sc_main(int argc, char *argv[]) {
   testbench my_testbench("my_testbench");
 
   int lev;
-  for(int i = 0; i < Sx*Sy - 1; i++) {
+  for(int i = 0; i < NUM_SA - 1; i++) {
     lev = (int) floor(log(i+1) / log(2));
-    my_testbench.maestro.p_switch[i]->AB_id = i;
+    my_testbench.maestro.p_switch[i]->id = i;
     my_testbench.maestro.p_switch[i]->level = lev;
   }
 
   for (int i = 0; i < Sx*Sy; i++) {
-    my_testbench.maestro.leaf_switch[i]->leaf_id = i;
+    my_testbench.maestro.leaf_switch[i]->id = i;
   }
 
 
