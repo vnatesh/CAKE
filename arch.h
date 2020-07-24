@@ -18,13 +18,14 @@ const static int alpha = (int) (1 / (R-1));
 // number of SAs on H-tree (square 2d array of SAs)
 const static int Sx = 4;
 const static int Sy = 4;
-const static int NUM_LEVELS = (int) ceil(log(((double) Sx*Sy)) / log(2));
+const static int NUM_SA = Sx * Sy;
+const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
 
 // shape of a pod sx x sy. For now, only 2x2 pods supported
 const static int sx = 2;
 const static int sy = 2;
 const static int POD_SZ = sx * sy;
-const static int NUM_PODS = (int) ((Sx*Sy) / POD_SZ); // user can opt to use only a portion of the total
+const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int NUM_AB = 1;
 const static int NUM_SRAM = 1;
 
@@ -55,3 +56,4 @@ const static int M = M_sr;
 const static int K = K_sr;
 const static int N = N_sr;
 #endif
+
