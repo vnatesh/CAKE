@@ -72,6 +72,9 @@ SC_MODULE(PacketSwitch)
     typedef NVUINT1  Bcast;
 
     typedef typename nvhls::nv_scvector<nvhls::nv_scvector <AccumType, tile_sz>, tile_sz> VectorType;
+    typedef typename nvhls::nv_scvector<Bcast, 2*NUM_SA - 1> BcastVectorType;
+
+
 
     class Packet: public nvhls_message {
      public:
@@ -89,9 +92,9 @@ SC_MODULE(PacketSwitch)
         AddrType src;
         AddrType dst;
         ID_type d_type; // weight (0), activation (1), result (2)
-        Bcast bcast;
+        BcastVectorType bcast;
 
-        static const unsigned int width = ID_type::width + 12 * AddrType::width + VectorType::width + Bcast::width; // sizeof(int) * N;
+        static const unsigned int width = ID_type::width + 12 * AddrType::width + VectorType::width + BcastVectorType::width; // sizeof(int) * N;
 
         template <unsigned int Size>
         void Marshall(Marshaller<Size>& m) {
@@ -113,7 +116,7 @@ SC_MODULE(PacketSwitch)
         }
     };
     
-    ID_type AB_id; // id for the associated AB
+    ID_type id; // id for the switch and associated AB
     ID_type level; // id for level of this switch in the h-tree
 
     Connections::In<Packet>   left_in;
@@ -159,13 +162,17 @@ SC_MODULE(PacketSwitch)
             if(p_in.src == INT_MAX) {
 
               if(p_in.d_type == 1) {
-                // p_in.bcast = 0;
-                left_out.Push(p_in);
-                right_out.Push(p_in);
-              } else if(((p_in.dst >> (NUM_LEVELS - level - 1)) & 1)) {
-                left_out.Push(p_in);
-              } else {
-                right_out.Push(p_in);
+                if(p_in.bcast[id]) {
+                  p_in.bcast[id] = 0;
+                  left_out.Push(p_in);
+                  right_out.Push(p_in);
+                }
+              } else if(p_in.d_type == 0) {
+                if(((p_in.dst >> (NUM_LEVELS - level - 1)) & 1)) {
+                  right_out.Push(p_in);
+                } else {
+                  left_out.Push(p_in);
+                }
               }
             }
           } 
@@ -176,7 +183,7 @@ SC_MODULE(PacketSwitch)
               parent_out.Push(p_in);
             }
 
-            else if(p_in.dst == AB_id) {
+            else if(p_in.dst == id) {
               // accumulate partials here
               // once you've accumed enough tiles, read AB header
               // of result tile and send up to next AB in chain
@@ -189,7 +196,7 @@ SC_MODULE(PacketSwitch)
               parent_out.Push(p_in);
             }
 
-            else if(p_in.dst == AB_id) {
+            else if(p_in.dst == id) {
 
             }
           }
@@ -249,4 +256,8 @@ SC_MODULE(PacketSwitch)
 };
 
 #endif
+
+
+
+
 
