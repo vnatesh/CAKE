@@ -61,12 +61,20 @@ SC_MODULE (testbench) {
   Connections::Combinational<PacketSwitch::Packet> sram_maestro_in;  
 
   // switch connections
-  Connections::Combinational<PacketSwitch::Packet> mb_in[NUM_PODS][POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> mb_out[NUM_PODS][POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> sa_in[NUM_PODS][POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> sa_out[NUM_PODS][POD_SZ];
-  Connections::Combinational<PacketSwitch::Packet> cb_in[NUM_PODS];
-  Connections::Combinational<PacketSwitch::Packet> cb_out[NUM_PODS];
+  Connections::Combinational<PacketSwitch::Packet> left_in[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> left_out[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> right_in[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> right_out[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> parent_in[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> parent_out[Sx*Sy-1];
+
+  // AB, SB, SA, SRAM connections
+  Connections::Combinational<PacketSwitch::Packet> sb_in[Sx*Sy];
+  Connections::Combinational<PacketSwitch::Packet> sb_out[Sx*Sy];
+  Connections::Combinational<PacketSwitch::Packet> sa_in[Sx*Sy];
+  Connections::Combinational<PacketSwitch::Packet> sa_out[Sx*Sy];
+  // Connections::Combinational<PacketSwitch::Packet> ab_in[Sx*Sy-1];
+  // Connections::Combinational<PacketSwitch::Packet> ab_out[Sx*Sy-1];
   Connections::Combinational<PacketSwitch::Packet> sram_in;
   Connections::Combinational<PacketSwitch::Packet> sram_out;
 
@@ -80,33 +88,69 @@ SC_MODULE (testbench) {
     clk("clk", 1, SC_NS, 0.5, 0, SC_NS, true),
     rst("rst")
   {
+    maestro.p_switch[0]->parent_in(sram_in);
+    maestro.packet_out(sram_in);
+    maestro.p_switch[0]->parent_out(sram_out);
+    maestro.packet_in(sram_out);
 
-    // 0-3 is MB ind, 4-7 is SA ind, 8 is CB, 
-    for (int j = 0; j < NUM_PODS; j++) {
-      for (int i = 0; i < POD_SZ; i++) {
-        // MB to switch ports
-        maestro.p_switch->in_ports[j][i](mb_in[j][i]);
-        maestro.p_switch->out_ports[j][i](mb_out[j][i]);
-        maestro.mb[j][i]->packet_in(mb_out[j][i]);
-        maestro.mb[j][i]->packet_out(mb_in[j][i]);
-        maestro.mb[j][i]->clk(clk);
-        maestro.mb[j][i]->rst(rst);
+    // connect the interior switches together as a binary tree
+    for(int i = 0; i < ((Sx*Sy)/2) - 1; i++) {
+      maestro.p_switch[i]->left_in(left_in[i]); 
+      maestro.p_switch[2*i+1]->parent_out(left_in[i]); 
+      maestro.p_switch[i]->left_out(left_out[i]); 
+      maestro.p_switch[2*i+1]->parent_in(left_out[i]); 
 
-        // SA to switch ports
-        maestro.p_switch->in_ports[j][i+POD_SZ](sa_in[j][i]);
-        maestro.p_switch->out_ports[j][i+POD_SZ](sa_out[j][i]);
-        maestro.sa[j][i]->packet_in(sa_out[j][i]);
-        maestro.sa[j][i]->packet_out(sa_in[j][i]);
-        maestro.sa[j][i]->clk(clk);
-        maestro.sa[j][i]->rst(rst);
-      }
-      // CB to switch ports
-      maestro.p_switch->in_ports[j][2*POD_SZ](cb_in[j]);
-      maestro.cb[j]->packet_out(cb_in[j]);
-      maestro.p_switch->out_ports[j][2*POD_SZ](cb_out[j]);
-      maestro.cb[j]->packet_in(cb_out[j]);
-      maestro.cb[j]->clk(clk);
-      maestro.cb[j]->rst(rst);
+      maestro.p_switch[i]->right_in(right_in[i]); 
+      maestro.p_switch[2*i+2]->parent_out(right_in[i]); 
+      maestro.p_switch[i]->right_out(right_out[i]); 
+      maestro.p_switch[2*i+2]->parent_in(right_out[i]); 
+    }
+
+    // connect the last level of interior switches to the leaf switches
+    int j = 0;
+    for(int i = ((Sx*Sy)/2) - 1; i < Sx*Sy-1; i++) {
+      maestro.p_switch[i]->left_in(left_in[i]); 
+      maestro.leaf_switch[j]->parent_out(left_in[i]);
+      maestro.p_switch[i]->left_out(left_out[i]); 
+      maestro.leaf_switch[j]->parent_in(left_out[i]);
+
+      maestro.p_switch[i]->right_in(right_in[i]); 
+      maestro.leaf_switch[j+1]->parent_out(right_in[i]);
+      maestro.p_switch[i]->right_out(right_out[i]); 
+      maestro.leaf_switch[j+1]->parent_in(right_out[i]);
+      j += 2;
+    }
+
+    for(int i = 0; i < Sx*Sy - 1; i++) {
+      // maestro.p_switch[i]->ab_in(ab_in[i]);
+      // maestro.ab[i]->packet_out(ab_in[i]);
+      // maestro.p_switch[i]->ab_out(ab_out[i]);
+      // maestro.ab[i]->packet_in(ab_out[i]);
+
+      // maestro.ab[i]->clk(clk);
+      // maestro.ab[i]->rst(rst);
+      maestro.p_switch[i]->clk(clk);
+      maestro.p_switch[i]->rst(rst);
+    }
+
+    // connect each SA and SB pair to a leaf switche
+    for(int i = 0; i < Sx*Sy; i++) {
+      maestro.leaf_switch[i]->sb_in(sb_in[i]);
+      maestro.sb[i]->packet_out(sb_in[i]); 
+      maestro.leaf_switch[i]->sb_out(sb_out[i]);
+      maestro.sb[i]->packet_in(sb_out[i]); 
+
+      maestro.leaf_switch[i]->sa_in(sa_in[i]);
+      maestro.sa[i]->packet_out(sa_in[i]); 
+      maestro.leaf_switch[i]->sa_out(sa_out[i]);
+      maestro.sa[i]->packet_in(sa_out[i]); 
+
+      maestro.sa[i]->clk(clk); 
+      maestro.sa[i]->rst(rst); 
+      maestro.sb[i]->clk(clk); 
+      maestro.sb[i]->rst(rst); 
+      maestro.leaf_switch[i]->clk(clk);
+      maestro.leaf_switch[i]->rst(rst);
     }
 
     // dram to sram ports
@@ -121,13 +165,6 @@ SC_MODULE (testbench) {
     maestro.maestro_sram_out(sram_maestro_in);
     sram.packet_in(sram_maestro_in);  
 
-    maestro.p_switch->maestro_in_port(sram_in);
-    maestro.packet_out(sram_in);
-    maestro.p_switch->maestro_out_port(sram_out);
-    maestro.packet_in(sram_out);
-
-    maestro.p_switch->clk(clk);
-    maestro.p_switch->rst(rst);
     maestro.clk(clk);
     maestro.rst(rst);
     sram.clk(clk);
@@ -152,7 +189,6 @@ SC_MODULE (testbench) {
 
 
 
-
 // TODO : experiment with different wait() times in different places.
 // TODO : print the final result in SRAM in a neat format
 int sc_main(int argc, char *argv[]) {
@@ -160,31 +196,26 @@ int sc_main(int argc, char *argv[]) {
   nvhls::set_random_seed();
   testbench my_testbench("my_testbench");
 
-  for(int j = 0; j < NUM_PODS; j++) {
-    for(int i = 0; i < POD_SZ; i++) {
-      my_testbench.maestro.mb[j][i]->id = i;
-      my_testbench.maestro.sa[j][i]->id = i + POD_SZ;
-    }
-
-    my_testbench.maestro.cb[j]->id = 2*POD_SZ;
-
-    vector<vector<vector<PacketSwitch::Packet>>> acc_buf(N_dr / N_sr,
-          vector<vector<PacketSwitch::Packet>>(M_dr / M_sr, 
-              vector<PacketSwitch::Packet>(N_sr / tile_sz)));
-
-    my_testbench.maestro.cb[j]->acc_buf = acc_buf;
+  int lev;
+  for(int i = 0; i < Sx*Sy - 1; i++) {
+    lev = (int) floor(log(i+1) / log(2));
+    my_testbench.maestro.p_switch[i]->AB_id = i;
+    my_testbench.maestro.p_switch[i]->level = lev;
   }
 
-  // TODO :  M, N, and K are set in arch.h for now. Later, they need to be dims of the 
-  // actual weight/data, which changes every DNN layer
-  cout << M << " " << K << " " << N << endl;
+  for (int i = 0; i < Sx*Sy; i++) {
+    my_testbench.maestro.leaf_switch[i]->leaf_id = i;
+  }
+
+
+  cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << endl;
   // Create weight and activation matrices with random values
-  my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M, K);
-  my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K, N);
-  vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M, 
-                                                                vector<PacketSwitch::AccumType>(N, 0));
+  my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
+  my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
+  vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M*tile_sz, 
+                                                                vector<PacketSwitch::AccumType>(N*tile_sz, 0));
   my_testbench.dram.result = result;
-  vector<vector<PacketSwitch::AccumType>> ref_out(M, vector<PacketSwitch::AccumType>(N));
+  vector<vector<PacketSwitch::AccumType>> ref_out(M*tile_sz, vector<PacketSwitch::AccumType>(N*tile_sz));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
 
@@ -205,18 +236,26 @@ int sc_main(int argc, char *argv[]) {
   cout << "TOTAL SIMULATION TIME = " << (end - start).to_default_time_units() << "\n";
 
   bool CORRECT = 1;
-  for(int i = 0; i < M; i++) {
-    for(int j = 0; j < N; j++) {
+  for(int i = 0; i < M*tile_sz; i++) {
+    for(int j = 0; j < N*tile_sz; j++) {
       if(my_testbench.dram.result[i][j] != ref_out[i][j]) {
         CORRECT = 0;
       }
     }
   }
 
-  if(CORRECT) 
+
+  ofstream myfile;
+  myfile.open ("results.txt", ios::app);
+
+  if(CORRECT) {
+    myfile << "1 ";
     cout << "\nMMM Result Correct!\n\n";
-  else
+  } else {
+    myfile << "0 ";
     cout << "\nMMM Result Incorrect! :( \n\n";
+  }
+  myfile.close();
 
 
   // PERFORMANCE COUNTERS
@@ -244,15 +283,15 @@ int sc_main(int argc, char *argv[]) {
 
 
   int mult_cnt = 0;
-  for(int j = 0; j < NUM_PODS; j++) {
-    for(int i = 0; i < POD_SZ; i++) {
-      cout << "SA idle time = " << my_testbench.maestro.sa[j][i]->idle_time << "\n";
-      cout << "SA IO time = " << my_testbench.maestro.sa[j][i]->io_time << "\n";
-      cout << "SA compute time = " << my_testbench.maestro.sa[j][i]->compute_time << "\n";
-      cout << "SA Wait cnt = " << my_testbench.maestro.sa[j][i]->wait_cnt << "\n";
-      mult_cnt += my_testbench.maestro.sa[j][i]->mult_cnt;
-    }
-  }
+  // for(int j = 0; j < NUM_PODS; j++) {
+  //   for(int i = 0; i < POD_SZ; i++) {
+  //     cout << "SA idle time = " << my_testbench.maestro.sa[j][i]->idle_time << "\n";
+  //     cout << "SA IO time = " << my_testbench.maestro.sa[j][i]->io_time << "\n";
+  //     cout << "SA compute time = " << my_testbench.maestro.sa[j][i]->compute_time << "\n";
+  //     cout << "SA Wait cnt = " << my_testbench.maestro.sa[j][i]->wait_cnt << "\n";
+  //     mult_cnt += my_testbench.maestro.sa[j][i]->mult_cnt;
+  //   }
+  // }
 
   cout << "\nSA PERF\n";
   cout << "Tiles Multiplied = " << mult_cnt << "\n";
@@ -261,13 +300,13 @@ int sc_main(int argc, char *argv[]) {
   // cout << "Compute Time = " << compute_time << "\n\n";
 
   int packet_cnt = 0;
-  for(int j = 0; j < NUM_PODS; j++) {
-    // cout << "CB idle time = " << my_testbench.maestro.cb[j]->idle_time << "\n";
-    // cout << "CB IO time = " << my_testbench.maestro.cb[j]->io_time << "\n";
-    // cout << "CB compute time = " << my_testbench.maestro.cb[j]->compute_time << "\n";
-    // cout << "CB Wait cnt = " << my_testbench.maestro.cb[j]->wait_cnt << "\n";
-    packet_cnt += my_testbench.maestro.cb[j]->packet_counter;
-  }
+  // for(int j = 0; j < NUM_PODS; j++) {
+  //   // cout << "CB idle time = " << my_testbench.maestro.ab[j]->idle_time << "\n";
+  //   // cout << "CB IO time = " << my_testbench.maestro.ab[j]->io_time << "\n";
+  //   // cout << "CB compute time = " << my_testbench.maestro.ab[j]->compute_time << "\n";
+  //   // cout << "CB Wait cnt = " << my_testbench.maestro.ab[j]->wait_cnt << "\n";
+  //   packet_cnt += my_testbench.maestro.ab[j]->packet_counter;
+  // }
 
   cout << "\nCB PERF\n";
   cout << "Result Tiles Sent = " << packet_cnt << "\n";
@@ -278,5 +317,3 @@ int sc_main(int argc, char *argv[]) {
 
   return 0;
 };
-
-
