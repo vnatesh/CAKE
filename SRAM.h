@@ -4,6 +4,35 @@
 #include "PacketSwitch.h"
 
 
+vector<vector<int> > bcast_dst() {
+
+  vector<vector<int> > bcast(K_sr, vector<int>(2*NUM_SA - 1, 0));
+  int d;
+
+  for(int kob_ind = 0; kob_ind < K_sr/K_ob; kob_ind++) {
+    for(int k = 0; k < K_ob; k++) {
+      for(int k_ind = kob_ind; k_ind < NUM_PODS_USED; k_ind += K_sr/K_ob) {
+        for(int j = 0; j < M_ob; j++) {
+
+          d = k_ind*POD_SZ + j*sx + k + (NUM_SA - 1);
+        
+          while(1) {
+            bcast[kob_ind * K_ob + k][d] = 1;
+            if(d == 0) {
+              break;
+            }
+            d = (d-1) / 2;
+          }
+        }
+      }
+    }
+  }
+
+  return bcast;
+}
+
+
+
 SC_MODULE(SRAM) {
 
 
@@ -24,10 +53,12 @@ SC_MODULE(SRAM) {
 
   int result_cnt = 0;
   int wait_cnt = 0;
-  bool ready = 1;
-  bool start_send = 0;
+  // bool ready = 1;
+  // bool start_send = 0;
   bool ready_result = 1;
   bool start_send_result = 0;
+
+  bool heyy = false;
 
 
   vector<vector<PacketSwitch::Packet>> weight_buf;
@@ -35,15 +66,11 @@ SC_MODULE(SRAM) {
   vector<vector<PacketSwitch::Packet>> result_buf;
 
 
-  // 0-3 is MB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
+  // 0-3 is SB ind, 4-7 is SA ind, 8 is SRAM, 9 is CB
   SC_HAS_PROCESS(SRAM);
   SRAM(sc_module_name name_) : sc_module(name_) {
     
     SC_THREAD(recv_dram);
-    sensitive << clk.pos();
-    NVHLS_NEG_RESET_SIGNAL_IS(rst);
-
-    SC_THREAD(send_to_maestro);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
@@ -58,124 +85,16 @@ SC_MODULE(SRAM) {
   }
 
 
+  void recv_dram() {
 
-  void send_to_maestro() {
-
-    packet_out.Reset();
-    wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_out1;
     PacketSwitch::Packet p_out2;
 
-    sc_time start, end;
-
-    while(1) {
-      if(start_send) {  
-
-        for (int n1 = 0; n1 < (N_dr / N_sr); n1++) {
-
-          for (int k_prime = 0; k_prime < (K_dr / K_sr); k_prime++) {
-
-            int k1;
-            if ((n1 % 2) == 0) {
-              k1 = k_prime;
-            } else {
-              k1 = (K_dr / K_sr) - k_prime - 1;
-            }
-
-            // send activations first to load the MBs with a region of activations
-            if(DEBUG) cout << "Sending SRAM activation block from SRAM to Maestro" << "\n";
-            for (int n = 0; n < (N_sr / tile_sz); n++){
-              for (int k = 0; k < (K_sr / tile_sz); k++) {
-                   
-                p_out2 = activation_buf[(k1 * (K_sr/tile_sz)) + k][(n1 * (N_sr/tile_sz)) + n];
-                p_out2.x = -1; // dummy value for x (pod_id)...it gets set by the packet switch during bcast
-                p_out2.y = n;
-                p_out2.z = k;
-                p_out2.MB = k; 
-                p_out2.SA = k + POD_SZ; 
-                p_out2.SRAM = INT_MAX; // sram src
-                p_out2.ttl = M_dr / M_sr; // each MB stores (N_sr/tile_sz) data tiles that are reused ttl times
-                p_out2.src = INT_MAX; // sram src
-                p_out2.dst = k; // dst is MB
-                p_out2.d_type = 1;
-                p_out2.bcast = 1;
-                packet_out.Push(p_out2);
-                packet_counter++;
-                wait();
-                // cout << "SRAM send packet to maestro\n"; 
-              }
-            }
-          }
-
-          for (int m_prime = 0; m_prime < (M_dr / M_sr); m_prime++) {
-
-            int m1;
-            if((n1 % 2) == 0) {
-              m1 = m_prime;
-            } else {
-              m1 = (M_dr / M_sr) - m_prime - 1;
-            }
-
-            if(m_prime == 0 && n1 != 0) { // skip sending this weight strip to allow reuse in MBs
-              continue;
-            }
-
-            int ttl;
-            if((m_prime ==  ((M_dr / M_sr) - 1)) && (n1 != ((N_dr / N_sr) - 1))) {
-              ttl = 1; // weight ttl set to 1 to indicate reuse when new region is beginning
-            } else { 
-              ttl = 0; // weight ttl set to 0 except when new region about to start
-            }
-
-            for (int k_prime = 0; k_prime < (K_dr / K_sr); k_prime++) {
-
-              int k1;
-              if ((m_prime % 2) == 0) {
-                k1 = k_prime;
-              } else {
-                k1 = (K_dr / K_sr) - k_prime - 1;
-              }
-
-              // Sweep through the DRAM block, sending data to be loaded on MBs, then weights
-              if(DEBUG) cout << "Sending SRAM weight block from SRAM to Maestro" << "\n";
-              for (int m = 0; m < (M_sr / tile_sz); m++) {
-                for (int k = 0; k < (K_sr / tile_sz); k++) {
-
-                  p_out1 = weight_buf[(m1 * (M_sr/tile_sz)) + m][(k1 * (K_sr/tile_sz)) + k];
-                  p_out1.x = m; // represents POD id
-                  p_out1.y = -1;
-                  p_out1.z = k;
-                  p_out1.MB = k; 
-                  p_out1.SA = k + POD_SZ; 
-                  p_out1.SRAM = INT_MAX; // sram src
-                  p_out1.ttl = ttl;
-                  p_out1.src = INT_MAX; // sram src
-                  p_out1.dst = k; // dst is MB
-                  p_out1.d_type = 0;
-                  p_out1.bcast = 0;
-                  packet_out.Push(p_out1); 
-                  packet_counter++;
-                  // cout << "SRAM send packet to maestro " << sc_time_stamp() << "\n"; 
-                  wait();
-                }
-              }
-            }
-          }
-        }
-
-        ready = 1;
-        start_send = 0;
-      }
-
-      wait();
-    }
-  }
-
-
-  void recv_dram() {
 
     sram_dram_in.Reset();
+    packet_out.Reset();
+
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
@@ -183,13 +102,19 @@ SC_MODULE(SRAM) {
     int m_cnt = 0; // weight row
     int k_cnt = 0; // weight col / act row
     int n_cnt = 0; // act col
-    bool buffer_opt = 1;
+    // bool buffer_opt = 1;
 
-    vector<vector<PacketSwitch::Packet>> weight_blk_sr1(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
-    vector<vector<PacketSwitch::Packet>> activation_blk_sr1(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+    int act_block_cnt = 0;
+    int weight_block_cnt = 0;
 
-    vector<vector<PacketSwitch::Packet>> weight_blk_sr2(M_dr/tile_sz, vector<PacketSwitch::Packet>(K_dr/tile_sz)); 
-    vector<vector<PacketSwitch::Packet>> activation_blk_sr2(K_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+    int weight_cnt = 0;
+    int act_cnt = 0;
+
+    vector<vector<int> > bcast = bcast_dst(); // bcast headers for data packets
+
+
+    vector<vector<PacketSwitch::Packet>> weight_blk_sr(M_sr, vector<PacketSwitch::Packet>(K_sr)); 
+    vector<vector<PacketSwitch::Packet>> activation_blk_sr(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
 
     sc_time start, end;
 
@@ -200,17 +125,12 @@ SC_MODULE(SRAM) {
         // cout << "SRAM Receive packet from DRAM " << sc_time_stamp() << "\n";  
 
         start = sc_time_stamp();
-        if(p_in.d_type == 0) {
+        if(p_in.d_type == 0) { // receive weights first
 
-          if(buffer_opt) {
-            weight_blk_sr1[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
-          } else {
-            weight_blk_sr2[p_in.X % (M_dr/tile_sz)][p_in.Z % (K_dr/tile_sz)] = p_in;
-          }
-
+          weight_blk_sr[p_in.X % M_sr][p_in.Z % K_sr] = p_in;
           k_cnt++;
           
-          if(k_cnt == K_dr / tile_sz) {
+          if(k_cnt == K_sr) {
             k_cnt = 0;
             m_cnt++;
           }
@@ -218,15 +138,11 @@ SC_MODULE(SRAM) {
 
         else if(p_in.d_type == 1) {
 
-          if(buffer_opt) {
-            activation_blk_sr1[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
-          } else {
-            activation_blk_sr2[p_in.Z % (K_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
-          }
+          activation_blk_sr[p_in.Z % K_sr][p_in.Y % N_sr] = p_in;
 
           k_cnt++;
 
-          if(k_cnt == K_dr / tile_sz) {
+          if(k_cnt == K_sr) {
             k_cnt = 0;
             n_cnt++;
           }
@@ -235,30 +151,97 @@ SC_MODULE(SRAM) {
 
       wait();
 
-      // when a full DRAM block (both weight and act) have been stored in SRAM, sweep the DRAM block via snake, 
+      // when a full SRAM block (both weight and act) have been stored in SRAM, sweep the SRAM block K first, 
       // i.e. send each weight/act SRAM_block pair in the snaking pattern, 
       // with act being sent first, then weight. 
       // TODO : need to implement weight reuse.   
-      if((m_cnt == M_dr / tile_sz) && (n_cnt ==  N_dr / tile_sz)) {
+      if((m_cnt == M_sr) && (n_cnt ==  N_sr)) {
         
-        while(!ready) wait(); // wait to send the next SRAM block until sending thread
-                              // has finished sending the current SRAM block to maestro
-        ready = 0;
-        if(buffer_opt) {
-          weight_buf = weight_blk_sr1;
-          activation_buf = activation_blk_sr1;
-        } else {
-          weight_buf = weight_blk_sr2;
-          activation_buf = activation_blk_sr2;
+        weight_buf = weight_blk_sr;
+        activation_buf = activation_blk_sr;
+
+        int dst_id = 0;
+
+        // Sweep through the SRAM block k-first to load SAs with weights
+        for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
+
+          for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+
+            // place tiles within each OB k-first 
+            if(DEBUG) cout << "Sending OB weight component from SRAM to Maestro" << "\n";
+            for (int m = 0; m < M_ob; m++) {
+              for (int k = 0; k < K_ob; k++) {
+
+                // bcast to all 
+
+                p_out1 = weight_buf[(m1 * (M_ob)) + m][(k1 * (K_ob)) + k];
+                p_out1.x = m; 
+                p_out1.y = -1;
+                p_out1.z = k;
+                p_out1.SB = k; 
+                p_out1.SA = k + POD_SZ; 
+                p_out1.SRAM = INT_MAX; // sram src
+                // p_out1.ttl = ttl;
+                p_out1.src = INT_MAX; // sram src
+                // p_out1.dst = k; // dst is SB
+                p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
+                // cout << "dst_id = " << dst_id << "\n"; 
+                p_out1.d_type = 0;
+                // p_out1.bcast = 0;
+                packet_out.Push(p_out1); 
+                packet_counter++;
+                // cout << "SRAM send packet to maestro " << sc_time_stamp() << "\n"; 
+                wait();
+                dst_id++;
+                weight_cnt++;
+              }
+            }
+          }
         }
 
-        start_send = 1;
-        buffer_opt = !buffer_opt; // switch buffers
+
+        for (int n1 = 0; n1 < (N_sr / N_ob); n1++) {
+
+          for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+
+            if(DEBUG) cout << "Sending OB data component from SRAM to H-tree" << "\n";
+            for (int n = 0; n < N_ob; n++){
+              for (int k = 0; k < K_ob; k++) {
+                
+                p_out2 = activation_buf[(k1 * K_ob) + k][(n1 * N_ob) + n];
+                p_out2.x = -1; // dummy value for x (pod_id)...it gets set by the packet switch during bcast
+                p_out2.y = n;
+                p_out2.z = k;
+                p_out2.SB = k; 
+                p_out2.SA = k + POD_SZ; 
+                p_out2.SRAM = INT_MAX; // sram src
+                // p_out2.ttl = M_sr / M_ob; // each SB stores (N_sr/tile_sz) data tiles that are reused ttl times
+                p_out2.src = INT_MAX; // sram src
+                // p_out2.dst = k; // dst is SB
+                // p_out2.dst = dst_id;
+                p_out2.d_type = 1;
+
+                for(int a = 0; a < 2*NUM_SA - 1; a++) {
+                  p_out2.bcast[a] = bcast[k1 * K_ob + k][a];
+                }
+                packet_out.Push(p_out2);
+                packet_counter++;
+                wait();
+
+                act_cnt++;
+                // cout << "SRAM send packet to maestro\n"; 
+              }
+            }
+          }
+        }
+
         m_cnt = 0;
         n_cnt = 0;
+        act_block_cnt++;
+        weight_block_cnt++;
+
       }
     
-         
       end = sc_time_stamp();
       io_time += (end - start).to_default_time_units();
     
@@ -272,6 +255,8 @@ SC_MODULE(SRAM) {
 
 
 
+
+
   void send_result_dram() {
 
     sram_dram_out.Reset();
@@ -280,8 +265,8 @@ SC_MODULE(SRAM) {
     while(1) {
       if(start_send_result) {  
 
-        for(int m = 0; m < M_dr/tile_sz; m++) {
-          for(int n = 0; n < N_dr/tile_sz; n++) {
+        for(int m = 0; m < M_sr; m++) {
+          for(int n = 0; n < N_sr; n++) {
             sram_dram_out.Push(result_buf[m][n]);
             wait();
             // cout << "SRAM send result to DRAM\n"; 
@@ -304,14 +289,13 @@ SC_MODULE(SRAM) {
 
     PacketSwitch::Packet p_in;
 
-    vector<vector<PacketSwitch::Packet>> result_blk_sr1(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
-    vector<vector<PacketSwitch::Packet>> result_blk_sr2(M_dr/tile_sz, vector<PacketSwitch::Packet>(N_dr/tile_sz)); 
+    vector<vector<PacketSwitch::Packet>> result_blk_sr(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
 
     // ofstream myfile;
     // myfile.open ("sram_traffic.csv");
 
     int p_cnt = 0;
-    bool buffer_opt_result = 1;
+    // int r = 0;
 
     while(1) {
 
@@ -319,36 +303,21 @@ SC_MODULE(SRAM) {
         // collect an entire DRAM block, then send to DRAM
         // cout << "SRAM Receive result from Maestro\n"; 
 
-        for(int i = 0; i < tile_sz; i++) {
-          for(int j = 0; j < tile_sz; j++) {
-            // cout << p_in.data[i][j] << " "; 
-          }
-          // cout << "\n";
-        }
-        // cout << "\n";
-
-        if(buffer_opt_result) {
-          result_blk_sr1[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
-        } else {
-          result_blk_sr2[p_in.X % (M_dr/tile_sz)][p_in.Y % (N_dr/tile_sz)] = p_in;
-        }
+        // r++;
+        // cout << "final r_cnt = " << r << "\n";
+        result_blk_sr[p_in.X % M_sr][p_in.Y % N_sr] = p_in;
 
         result_cnt++;
         p_cnt++;
 
-        if(p_cnt == ((M_dr/tile_sz) * (N_dr/tile_sz))) {
+        if(p_cnt == (M_sr * N_sr)) {
 
           while(!ready_result) wait(); // wait to send the next SRAM block until sending thread
                                 // has finished sending the current SRAM block to maestro
           ready_result = 0;
-          if(buffer_opt_result) {
-            result_buf = result_blk_sr1;
-          } else {
-            result_buf = result_blk_sr2;
-          }
+          result_buf = result_blk_sr;
 
           start_send_result = 1;
-          buffer_opt_result = !buffer_opt_result; // switch buffers
           p_cnt = 0;
         }
       } 
