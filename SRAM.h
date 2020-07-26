@@ -33,6 +33,64 @@ vector<vector<int> > bcast_dst() {
 
 
 
+vector<vector<vector<vector<vector<int> > > > > AB_chains() {
+
+  vector<vector<vector<vector<vector<int> > > > > ab_chains(M_sr/M_ob, 
+    vector<vector<vector<vector<int> > > >(K_sr/K_ob, 
+      vector<vector<vector<int> > >(K_ob, 
+        vector<vector<int> >(M_ob, 
+          vector <int>(NUM_LEVELS, 0)))));  
+
+  int next_leaf;
+  int curr_leaf;
+
+  // create m strips of leaf ids representing tiles
+  // being placed k-first within pods and accross pods
+  vector<vector<int> > strips(M_sr, vector <int>(K_sr, 0));
+  for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
+    for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+      for (int m = 0; m < M_ob; m++) {
+        for (int k = 0; k < K_ob; k++) {
+          strips[m1*M_ob + m][k1*K_ob + k] = m1*(K_sr / K_ob)*POD_SZ + k1*POD_SZ + m*K_ob  + k + (NUM_SA - 1);
+        }
+      }
+    }
+  }
+  
+  // create AB chain for each tile in every OB 
+  // by comparing each tile with the same M_sr 
+  // index to one another
+  for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
+    for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+      for (int m = 0; m < M_ob; m++) {
+        for (int k = 0; k < K_ob; k++) {
+
+          set<int, greater<int> > chain;  
+          curr_leaf = m1*(K_sr / K_ob)*POD_SZ + k1*POD_SZ + m*K_ob + k + (NUM_SA - 1); 
+      
+          for(int i = 0; i < K_sr; i++) {
+            next_leaf = strips[m1 * M_ob + m][i];
+            if(next_leaf != curr_leaf) {
+              chain.insert(LCA(curr_leaf, next_leaf)); 
+            }
+          }
+
+          for(int n = 0; n < chain.size(); n++) {
+            set<int>::iterator iter = chain.begin();
+            advance(iter, n);
+            ab_chains[m1][k1][m][k][n] = *iter;
+          }
+        }
+      }
+    }
+  }
+
+  return ab_chains;
+}
+
+
+
+
 SC_MODULE(SRAM) {
 
 
@@ -109,10 +167,11 @@ SC_MODULE(SRAM) {
 
     int weight_cnt = 0;
     int act_cnt = 0;
+    int dst_id = 0;
 
+    vector<vector<vector<vector<vector<int> > > > > ab_chains = AB_chains(); // AB_chains for weight packets
     vector<vector<int> > bcast = bcast_dst(); // bcast headers for data packets
-
-
+   
     vector<vector<PacketSwitch::Packet>> weight_blk_sr(M_sr, vector<PacketSwitch::Packet>(K_sr)); 
     vector<vector<PacketSwitch::Packet>> activation_blk_sr(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
 
@@ -160,7 +219,7 @@ SC_MODULE(SRAM) {
         weight_buf = weight_blk_sr;
         activation_buf = activation_blk_sr;
 
-        int dst_id = 0;
+        dst_id = 0;
 
         // Sweep through the SRAM block k-first to load SAs with weights
         for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
@@ -172,8 +231,6 @@ SC_MODULE(SRAM) {
             for (int m = 0; m < M_ob; m++) {
               for (int k = 0; k < K_ob; k++) {
 
-                // bcast to all 
-
                 p_out1 = weight_buf[(m1 * (M_ob)) + m][(k1 * (K_ob)) + k];
                 p_out1.x = m; 
                 p_out1.y = -1;
@@ -181,16 +238,17 @@ SC_MODULE(SRAM) {
                 p_out1.SB = k; 
                 p_out1.SA = k + POD_SZ; 
                 p_out1.SRAM = INT_MAX; // sram src
-                // p_out1.ttl = ttl;
                 p_out1.src = INT_MAX; // sram src
-                // p_out1.dst = k; // dst is SB
                 p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
-                // cout << "dst_id = " << dst_id << "\n"; 
                 p_out1.d_type = 0;
-                // p_out1.bcast = 0;
+                
+                // set AB_chain in packet header               
+                for(int s = 0; s < NUM_LEVELS; s++) {
+                  p_out1.AB[s] = ab_chains[m1][k1][m][k][s];
+                }
+
                 packet_out.Push(p_out1); 
                 packet_counter++;
-                // cout << "SRAM send packet to maestro " << sc_time_stamp() << "\n"; 
                 wait();
                 dst_id++;
                 weight_cnt++;
@@ -215,12 +273,9 @@ SC_MODULE(SRAM) {
                 p_out2.SB = k; 
                 p_out2.SA = k + POD_SZ; 
                 p_out2.SRAM = INT_MAX; // sram src
-                // p_out2.ttl = M_sr / M_ob; // each SB stores (N_sr/tile_sz) data tiles that are reused ttl times
                 p_out2.src = INT_MAX; // sram src
-                // p_out2.dst = k; // dst is SB
-                // p_out2.dst = dst_id;
                 p_out2.d_type = 1;
-
+                // set bcast header 
                 for(int a = 0; a < 2*NUM_SA - 1; a++) {
                   p_out2.bcast[a] = bcast[k1 * K_ob + k][a];
                 }
