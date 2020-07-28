@@ -5,12 +5,11 @@
 #include "LeafSwitch.h"
 #include "SB.h"
 #include "SA.h"
-#include "AB.h"
+// #include "AB.h"
 
 SC_MODULE(Maestro) {
 
   PacketSwitch* p_switch[Sx*Sy - 1];
-  AB* ab[Sx*Sy - 1];
 
   LeafSwitch* leaf_switch[Sx*Sy];
   SB* sb[Sx*Sy];
@@ -31,7 +30,6 @@ SC_MODULE(Maestro) {
 
     for(int i = 0; i < Sx*Sy - 1; i++) {
       p_switch[i] = new PacketSwitch(sc_gen_unique_name("p_switch"));
-      // ab[i] = new AB(sc_gen_unique_name("ab"));
     }
 
     for (int i = 0; i < Sx*Sy; i++) {
