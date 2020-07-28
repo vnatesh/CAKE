@@ -43,7 +43,6 @@ SC_MODULE(LeafSwitch)
 
           if(parent_in.PopNB(p_in)) {
 
-
             if(p_in.d_type == 1) {
               if(p_in.bcast[id + NUM_SA - 1]) {
                 p_in.bcast[id + NUM_SA - 1] = 0;
