@@ -50,7 +50,7 @@ vector<vector<vector<vector<vector<int> > > > > AB_chains() {
     vector<vector<vector<vector<int> > > >(K_sr/K_ob, 
       vector<vector<vector<int> > >(K_ob, 
         vector<vector<int> >(M_ob, 
-          vector <int>(NUM_LEVELS, 0)))));  
+          vector <int>(NUM_LEVELS+1, 0)))));  
 
   int next_leaf;
   int curr_leaf;
@@ -85,12 +85,14 @@ vector<vector<vector<vector<vector<int> > > > > AB_chains() {
               chain.insert(LCA(curr_leaf, next_leaf)); 
             }
           }
+          chain.insert(INT_MIN); // SRAM is last address in chain
 
           for(unsigned int n = 0; n < chain.size(); n++) {
             set<int>::iterator iter = chain.begin();
             advance(iter, n);
             ab_chains[m1][k1][m][k][n] = *iter;
           }
+
         }
       }
     }
@@ -245,8 +247,8 @@ SC_MODULE(SRAM) {
                 p_out1.z = (k1 * K_ob) + k;
                 p_out1.SB = k; 
                 p_out1.SA = k + POD_SZ; 
-                p_out1.SRAM = INT_MAX; // sram src
-                p_out1.src = INT_MAX; // sram src
+                p_out1.SRAM = INT_MIN; // sram src
+                p_out1.src = INT_MIN; // sram src
                 p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
                 p_out1.d_type = 0;
                 
@@ -280,8 +282,8 @@ SC_MODULE(SRAM) {
                 p_out2.z = (k1 * K_ob) + k;
                 p_out2.SB = k; 
                 p_out2.SA = k + POD_SZ; 
-                p_out2.SRAM = INT_MAX; // sram src
-                p_out2.src = INT_MAX; // sram src
+                p_out2.SRAM = INT_MIN; // sram src
+                p_out2.src = INT_MIN; // sram src
                 p_out2.d_type = 1;
 
                 // set bcast header 
