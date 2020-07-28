@@ -68,13 +68,11 @@ SC_MODULE (testbench) {
   Connections::Combinational<PacketSwitch::Packet> parent_in[Sx*Sy-1];
   Connections::Combinational<PacketSwitch::Packet> parent_out[Sx*Sy-1];
 
-  // AB, SB, SA, SRAM connections
+  // SB, SA, SRAM connections
   Connections::Combinational<PacketSwitch::Packet> sb_in[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sb_out[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sa_in[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sa_out[Sx*Sy];
-  // Connections::Combinational<PacketSwitch::Packet> ab_in[Sx*Sy-1];
-  // Connections::Combinational<PacketSwitch::Packet> ab_out[Sx*Sy-1];
   Connections::Combinational<PacketSwitch::Packet> sram_in;
   Connections::Combinational<PacketSwitch::Packet> sram_out;
 
@@ -122,13 +120,6 @@ SC_MODULE (testbench) {
     }
 
     for(int i = 0; i < Sx*Sy - 1; i++) {
-      // maestro.p_switch[i]->ab_in(ab_in[i]);
-      // maestro.ab[i]->packet_out(ab_in[i]);
-      // maestro.p_switch[i]->ab_out(ab_out[i]);
-      // maestro.ab[i]->packet_in(ab_out[i]);
-
-      // maestro.ab[i]->clk(clk);
-      // maestro.ab[i]->rst(rst);
       maestro.p_switch[i]->clk(clk);
       maestro.p_switch[i]->rst(rst);
     }
@@ -203,7 +194,13 @@ int sc_main(int argc, char *argv[]) {
     my_testbench.maestro.p_switch[i]->level = lev;
   }
 
-  for (int i = 0; i < Sx*Sy; i++) {
+  // switches in each level have acc_buf with M_ob*N_sr tiles
+  for(int i = 0; i < NUM_SA - 1; i++) {                                                               
+    vector<vector<PacketSwitch::Packet>> acc_buf(M_ob, vector<PacketSwitch::Packet>(N_sr)); 
+    my_testbench.maestro.p_switch[i]->acc_buf = acc_buf;
+  }
+
+  for (int i = 0; i < NUM_SA; i++) {
     my_testbench.maestro.leaf_switch[i]->id = i;
   }
 
