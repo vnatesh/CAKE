@@ -14,7 +14,7 @@ vector<vector<int> > bcast_dst() {
       for(int k_ind = kob_ind; k_ind < NUM_PODS_USED; k_ind += K_sr/K_ob) {
         for(int j = 0; j < M_ob; j++) {
 
-          d = k_ind*POD_SZ + j*sx + k + (NUM_SA - 1);
+          d = k_ind*POD_SZ + j*K_ob + k + (NUM_SA - 1);
         
           while(1) {
             bcast[kob_ind * K_ob + k][d] = 1;
@@ -31,6 +31,17 @@ vector<vector<int> > bcast_dst() {
   return bcast;
 }
 
+
+int LCA(int a, int b) {
+  while(1) {
+    a = (a-1) / 2;
+    b = (b-1) / 2;
+
+    if(a == b) {
+      return a;
+    }
+  }
+}
 
 
 vector<vector<vector<vector<vector<int> > > > > AB_chains() {
@@ -75,7 +86,7 @@ vector<vector<vector<vector<vector<int> > > > > AB_chains() {
             }
           }
 
-          for(int n = 0; n < chain.size(); n++) {
+          for(unsigned int n = 0; n < chain.size(); n++) {
             set<int>::iterator iter = chain.begin();
             advance(iter, n);
             ab_chains[m1][k1][m][k][n] = *iter;
@@ -145,10 +156,8 @@ SC_MODULE(SRAM) {
 
   void recv_dram() {
 
-
     PacketSwitch::Packet p_out1;
     PacketSwitch::Packet p_out2;
-
 
     sram_dram_in.Reset();
     packet_out.Reset();
@@ -198,7 +207,6 @@ SC_MODULE(SRAM) {
         else if(p_in.d_type == 1) {
 
           activation_blk_sr[p_in.Z % K_sr][p_in.Y % N_sr] = p_in;
-
           k_cnt++;
 
           if(k_cnt == K_sr) {
@@ -231,10 +239,10 @@ SC_MODULE(SRAM) {
             for (int m = 0; m < M_ob; m++) {
               for (int k = 0; k < K_ob; k++) {
 
-                p_out1 = weight_buf[(m1 * (M_ob)) + m][(k1 * (K_ob)) + k];
-                p_out1.x = m; 
+                p_out1 = weight_buf[(m1 * M_ob) + m][(k1 * K_ob) + k];
+                p_out1.x = (m1 * M_ob) + m; 
                 p_out1.y = -1;
-                p_out1.z = k;
+                p_out1.z = (k1 * K_ob) + k;
                 p_out1.SB = k; 
                 p_out1.SA = k + POD_SZ; 
                 p_out1.SRAM = INT_MAX; // sram src
@@ -242,7 +250,7 @@ SC_MODULE(SRAM) {
                 p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
                 p_out1.d_type = 0;
                 
-                // set AB_chain in packet header               
+                // set AB_chain header               
                 for(int s = 0; s < NUM_LEVELS; s++) {
                   p_out1.AB[s] = ab_chains[m1][k1][m][k][s];
                 }
@@ -267,22 +275,23 @@ SC_MODULE(SRAM) {
               for (int k = 0; k < K_ob; k++) {
                 
                 p_out2 = activation_buf[(k1 * K_ob) + k][(n1 * N_ob) + n];
-                p_out2.x = -1; // dummy value for x (pod_id)...it gets set by the packet switch during bcast
-                p_out2.y = n;
-                p_out2.z = k;
+                p_out2.x = -1; // dummy value for x 
+                p_out2.y = (n1 * N_ob) + n;
+                p_out2.z = (k1 * K_ob) + k;
                 p_out2.SB = k; 
                 p_out2.SA = k + POD_SZ; 
                 p_out2.SRAM = INT_MAX; // sram src
                 p_out2.src = INT_MAX; // sram src
                 p_out2.d_type = 1;
+
                 // set bcast header 
                 for(int a = 0; a < 2*NUM_SA - 1; a++) {
-                  p_out2.bcast[a] = bcast[k1 * K_ob + k][a];
+                  p_out2.bcast[a] = bcast[(k1 * K_ob) + k][a];
                 }
+
                 packet_out.Push(p_out2);
                 packet_counter++;
                 wait();
-
                 act_cnt++;
                 // cout << "SRAM send packet to maestro\n"; 
               }
