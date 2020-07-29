@@ -142,340 +142,331 @@ SC_MODULE(PacketSwitch)
 
     SC_HAS_PROCESS(PacketSwitch);
     PacketSwitch(sc_module_name name_) : sc_module(name_) {
-        SC_THREAD (run); 
-        sensitive << clk.pos(); 
-        NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+      SC_THREAD (recv_parent); 
+      sensitive << clk.pos(); 
+      NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+      SC_THREAD (recv_children); 
+      sensitive << clk.pos(); 
+      NVHLS_NEG_RESET_SIGNAL_IS(rst);
     }
 
 
-    void run() {
+    void recv_parent() {
 
-        left_in.Reset();
-        right_in.Reset();
-        left_out.Reset();
-        right_out.Reset();
-        parent_in.Reset();
-        parent_out.Reset();
-        // ab_in.Reset();
-        // ab_out.Reset();
+      left_out.Reset();
+      right_out.Reset();
+      parent_in.Reset();
+      // ab_in.Reset();
+      // ab_out.Reset();
 
-        wait(20.0, SC_NS); // wait for reset
-        
-        AddrType d;
-        AddrType e;
-        Packet p_in;
-        Packet p_out;
+      wait(20.0, SC_NS); // wait for reset
+      
+      Packet p_in;
+      Packet p_out;
 
-        while (1) {
+      while (1) {
 
-          // TODO : make parent_in receive on a separate thread
-          if(parent_in.PopNB(p_in)) {
+        // TODO : make parent_in receive on a separate thread
+        if(parent_in.PopNB(p_in)) {
 
-            // if packet came from SRAM, send it down left/right children
-            if(p_in.src == INT_MIN) {
+          // if packet came from SRAM, send it down left/right children
+          if(p_in.src == INT_MIN) {
 
-              if(p_in.d_type == 1) {
-                if(p_in.bcast[id]) {
-                  p_in.bcast[id] = 0;
-                  left_out.Push(p_in);
-                  right_out.Push(p_in);
-                }
-              } else if(p_in.d_type == 0) {
-                if(((p_in.dst >> (NUM_LEVELS - level - 1)) & 1)) { // if bit is 1, go right
-                  right_out.Push(p_in);
-                } else {
-                  left_out.Push(p_in);
-                }
+            if(p_in.d_type == 1) {
+              if(p_in.bcast[id]) {
+                p_in.bcast[id] = 0;
+                left_out.Push(p_in);
+                right_out.Push(p_in);
+              }
+            } else if(p_in.d_type == 0) {
+              if(((p_in.dst >> (NUM_LEVELS - level - 1)) & 1)) { // if bit is 1, go right
+                right_out.Push(p_in);
+              } else {
+                left_out.Push(p_in);
               }
             }
-          } 
+          }
+        } 
 
-          if(left_in.PopNB(p_in)) {
+        wait();
+      }
+    }
 
-            if(p_in.dst == id) {
 
-              if(level == NUM_LEVELS - 1) { // second to last level holds accumulates partials the longest
 
-                n_ind = p_in.Y % N_sr; 
-                m_ind = 0; 
-      
-                for (int i = 0; i < tile_sz; i++) {
-                  for (int j = 0; j < tile_sz; j++) {
-                    acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
+    void recv_children() {
+
+      left_in.Reset();
+      right_in.Reset();
+      parent_out.Reset();
+   
+      wait(20.0, SC_NS); // wait for reset
+
+      Packet p_in;
+      Packet p_out;
+
+      while(1) {
+
+        if(left_in.PopNB(p_in)) {
+
+          if(p_in.dst == id) {
+
+            if(level == NUM_LEVELS - 1) { // second to last level holds accumulates partials the longest
+
+              n_ind = p_in.Y % N_sr; 
+              m_ind = 0; 
+    
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
+                }
+              }
+
+              acc_buf[m_ind][n_ind].X = p_in.X;
+              acc_buf[m_ind][n_ind].Y = p_in.Y;
+              acc_buf[m_ind][n_ind].Z = p_in.Z;
+              acc_buf[m_ind][n_ind].x = p_in.x;
+              acc_buf[m_ind][n_ind].y = p_in.y;
+              acc_buf[m_ind][n_ind].z = p_in.z;
+              acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
+              accum_cnt++;
+
+              wait();
+
+              if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
+
+                for(int n = 0; n < N_sr; n++) { 
+
+                  p_out = acc_buf[m_ind][n]; // this sets X,Y,Z,x,y,z headers for final result output                    
+                  p_out.src = id;
+
+                  for(int s = 0; s < NUM_LEVELS+1; s++) {
+                    p_out.AB[s] = p_in.AB[s];
                   }
+
+                  p_out.dst = p_in.AB[1]; // send to next AB (or SRAM) in chain
+                  p_out.d_type = 2; // result type                    
+                  // if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
+                  parent_out.Push(p_out);
+                  // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
+                  for (int i = 0; i < tile_sz; i++) {
+                    for (int j = 0; j < tile_sz; j++) {
+                      acc_buf[m_ind][n].data[i][j] = 0; // reset acc_buf to 0;
+                    }
+                  }
+
+                  wait();   
                 }
 
-                acc_buf[m_ind][n_ind].X = p_in.X;
-                acc_buf[m_ind][n_ind].Y = p_in.Y;
-                acc_buf[m_ind][n_ind].Z = p_in.Z;
-                acc_buf[m_ind][n_ind].x = p_in.x;
-                acc_buf[m_ind][n_ind].y = p_in.y;
-                acc_buf[m_ind][n_ind].z = p_in.z;
-                acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
-                accum_cnt++;
+                accum_cnt = 0;
+              }
+            }
 
-                wait();
+            else { // at levels other than 2nd to last, accumulate each partial only twice
 
-                if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
+              n_ind = p_in.Y % N_sr; 
+              m_ind = p_in.X % M_ob; 
 
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
+                }
+              }
+
+              acc_buf[m_ind][n_ind].X = p_in.X;
+              acc_buf[m_ind][n_ind].Y = p_in.Y;
+              acc_buf[m_ind][n_ind].Z = p_in.Z;
+              acc_buf[m_ind][n_ind].x = p_in.x;
+              acc_buf[m_ind][n_ind].y = p_in.y;
+              acc_buf[m_ind][n_ind].z = p_in.z;
+              acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
+              accum_cnt1++;
+
+              wait();
+
+              if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
+                                                   //accumulate each of the M_ob*N_sr tiles twice
+                
+                // cout << "AB " << id << "level " << level << "\n";
+                for(int m = 0; m < M_ob; m++) { 
                   for(int n = 0; n < N_sr; n++) { 
-
-                    p_out = acc_buf[m_ind][n]; // this sets X,Y,Z,x,y,z headers for final result output                    
+                   
+                    p_out = acc_buf[m][n]; // this sets X,Y,Z,x,y,z headers for final result output
                     p_out.src = id;
 
                     for(int s = 0; s < NUM_LEVELS+1; s++) {
                       p_out.AB[s] = p_in.AB[s];
+                      // cout << p_in.AB[s] << " ";
+                    }
+                    // cout << "\n";                      
+
+                    for(int s = 0; s < NUM_LEVELS+1; s++) {
+                      if(p_in.AB[s] < id) {
+                        p_out.dst = p_in.AB[s];
+                        break;
+                      }
                     }
 
-                    // p_out.src = p_out.dst;
-                    p_out.dst = p_in.AB[1]; // send to next AB (or SRAM) in chain
                     p_out.d_type = 2; // result type                    
                     // if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
                     parent_out.Push(p_out);
+
                     for (int i = 0; i < tile_sz; i++) {
                       for (int j = 0; j < tile_sz; j++) {
-                        acc_buf[m_ind][n].data[i][j] = 0; // reset acc_buf to 0;
+                        acc_buf[m][n].data[i][j] = 0; // reset acc_buf to 0;
                       }
                     }
 
                     wait();   
                   }
-
-                  accum_cnt = 0;
-                }
-              }
-
-              else { // at levels other than 2nd to last, accumulate each partial only twice
-
-                n_ind = p_in.Y % N_sr; 
-                m_ind = p_in.X % M_ob; 
-
-                for (int i = 0; i < tile_sz; i++) {
-                  for (int j = 0; j < tile_sz; j++) {
-                    acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
-                  }
                 }
 
-                acc_buf[m_ind][n_ind].X = p_in.X;
-                acc_buf[m_ind][n_ind].Y = p_in.Y;
-                acc_buf[m_ind][n_ind].Z = p_in.Z;
-                acc_buf[m_ind][n_ind].x = p_in.x;
-                acc_buf[m_ind][n_ind].y = p_in.y;
-                acc_buf[m_ind][n_ind].z = p_in.z;
-                acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
-                accum_cnt1++;
-
-                if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
-                                                     //accumulate each of the M_ob*N_sr tiles twice
-                  
-                  for(int m = 0; m < M_ob; m++) { 
-                    for(int n = 0; n < N_sr; n++) { 
-                     
-                      p_out = acc_buf[m][n]; // this sets X,Y,Z,x,y,z headers for final result output
-                      p_out.src = id;
-
-                      for(int s = 0; s < NUM_LEVELS+1; s++) {
-                        p_out.AB[s] = p_in.AB[s];
-                      }
-
-                      for(int s = 0; s < NUM_LEVELS+1; s++) {
-                        if(p_in.AB[s] < id) {
-                          p_out.dst = p_in.AB[s];
-                          break;
-                        }
-                      }
-
-                      p_out.d_type = 2; // result type                    
-                      if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
-                      parent_out.Push(p_out);
-
-                      for (int i = 0; i < tile_sz; i++) {
-                        for (int j = 0; j < tile_sz; j++) {
-                          acc_buf[m][n].data[i][j] = 0; // reset acc_buf to 0;
-                        }
-                      }
-
-                      wait();   
-                    }
-                  }
-
-                  accum_cnt1 = 0;
-                } 
-              }
-            }
-
-            else {
-              parent_out.Push(p_in);
-              wait();
+                accum_cnt1 = 0;
+              } 
             }
           }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          if(right_in.PopNB(p_in)) {
-
-            if(p_in.dst == id) {
-
-              if(level == NUM_LEVELS - 1) { // second to last level holds accumulates partials the longest
-
-                n_ind = p_in.Y % N_sr; 
-                m_ind = 0; 
-      
-                for (int i = 0; i < tile_sz; i++) {
-                  for (int j = 0; j < tile_sz; j++) {
-                    acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
-                  }
-                }
-
-                acc_buf[m_ind][n_ind].X = p_in.X;
-                acc_buf[m_ind][n_ind].Y = p_in.Y;
-                acc_buf[m_ind][n_ind].Z = p_in.Z;
-                acc_buf[m_ind][n_ind].x = p_in.x;
-                acc_buf[m_ind][n_ind].y = p_in.y;
-                acc_buf[m_ind][n_ind].z = p_in.z;
-                acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
-                accum_cnt++;
-
-                wait();
-
-                if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
-
-                  for(int n = 0; n < N_sr; n++) { 
-
-                    p_out = acc_buf[m_ind][n]; // this sets X,Y,Z,x,y,z headers for final result output                    
-                    p_out.src = id;
-
-                    for(int s = 0; s < NUM_LEVELS+1; s++) {
-                      p_out.AB[s] = p_in.AB[s];
-                    }
-
-                    // p_out.src = p_out.dst;
-                    p_out.dst = p_in.AB[1]; // send to next AB (or SRAM) in chain
-                    p_out.d_type = 2; // result type                    
-                    // if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
-                    parent_out.Push(p_out);
-                    for (int i = 0; i < tile_sz; i++) {
-                      for (int j = 0; j < tile_sz; j++) {
-                        acc_buf[m_ind][n].data[i][j] = 0; // reset acc_buf to 0;
-                      }
-                    }
-
-                    wait();   
-                  }
-
-                  accum_cnt = 0;
-                }
-              }
-
-              else { // at levels other than 2nd to last, accumulate each partial only twice
-
-                n_ind = p_in.Y % N_sr; 
-                m_ind = p_in.X % M_ob; 
-
-                for (int i = 0; i < tile_sz; i++) {
-                  for (int j = 0; j < tile_sz; j++) {
-                    acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
-                  }
-                }
-
-                acc_buf[m_ind][n_ind].X = p_in.X;
-                acc_buf[m_ind][n_ind].Y = p_in.Y;
-                acc_buf[m_ind][n_ind].Z = p_in.Z;
-                acc_buf[m_ind][n_ind].x = p_in.x;
-                acc_buf[m_ind][n_ind].y = p_in.y;
-                acc_buf[m_ind][n_ind].z = p_in.z;
-                acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
-                accum_cnt1++;
-
-                if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
-                                                     //accumulate each of the M_ob*N_sr tiles twice
-                  
-                  for(int m = 0; m < M_ob; m++) { 
-                    for(int n = 0; n < N_sr; n++) { 
-                     
-                      p_out = acc_buf[m][n]; // this sets X,Y,Z,x,y,z headers for final result output
-                      p_out.src = id;
-
-                      for(int s = 0; s < NUM_LEVELS+1; s++) {
-                        p_out.AB[s] = p_in.AB[s];
-                      }
-
-                      for(int s = 0; s < NUM_LEVELS+1; s++) {
-                        if(p_in.AB[s] < id) {
-                          p_out.dst = p_in.AB[s];
-                          break;
-                        }
-                      }
-
-                      p_out.d_type = 2; // result type                    
-                      if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
-                      parent_out.Push(p_out);
-
-                      for (int i = 0; i < tile_sz; i++) {
-                        for (int j = 0; j < tile_sz; j++) {
-                          acc_buf[m][n].data[i][j] = 0; // reset acc_buf to 0;
-                        }
-                      }
-
-                      wait();   
-                    }
-                  }
-
-                  accum_cnt1 = 0;
-                } 
-              }
-            }
-
-            else {
-              parent_out.Push(p_in);
-              wait();
-            }
+          else {
+            parent_out.Push(p_in);
+            wait();
           }
-
-
-
-
-
-
-
-
-          
-
-
-
-
-
-
-
-
-
-
-
-
-          wait();
         }
+
+
+
+
+        if(right_in.PopNB(p_in)) {
+
+          if(p_in.dst == id) {
+
+            if(level == NUM_LEVELS - 1) { // second to last level holds accumulates partials the longest
+
+              n_ind = p_in.Y % N_sr; 
+              m_ind = 0; 
+    
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
+                }
+              }
+
+              acc_buf[m_ind][n_ind].X = p_in.X;
+              acc_buf[m_ind][n_ind].Y = p_in.Y;
+              acc_buf[m_ind][n_ind].Z = p_in.Z;
+              acc_buf[m_ind][n_ind].x = p_in.x;
+              acc_buf[m_ind][n_ind].y = p_in.y;
+              acc_buf[m_ind][n_ind].z = p_in.z;
+              acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
+              accum_cnt++;
+
+              wait();
+
+              if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
+
+                for(int n = 0; n < N_sr; n++) { 
+
+                  p_out = acc_buf[m_ind][n]; // this sets X,Y,Z,x,y,z headers for final result output                    
+                  p_out.src = id;
+
+                  for(int s = 0; s < NUM_LEVELS+1; s++) {
+                    p_out.AB[s] = p_in.AB[s];
+                  }
+
+                  p_out.dst = p_in.AB[1]; // send to next AB (or SRAM) in chain
+                  p_out.d_type = 2; // result type                    
+                  // if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
+                  parent_out.Push(p_out);
+                  // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
+                  for (int i = 0; i < tile_sz; i++) {
+                    for (int j = 0; j < tile_sz; j++) {
+                      acc_buf[m_ind][n].data[i][j] = 0; // reset acc_buf to 0;
+                    }
+                  }
+
+                  wait();   
+                }
+
+                accum_cnt = 0;
+              }
+            }
+
+            else { // at levels other than 2nd to last, accumulate each partial only twice
+
+              n_ind = p_in.Y % N_sr; 
+              m_ind = p_in.X % M_ob; 
+
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  acc_buf[m_ind][n_ind].data[i][j] += p_in.data[i][j];
+                }
+              }
+
+              acc_buf[m_ind][n_ind].X = p_in.X;
+              acc_buf[m_ind][n_ind].Y = p_in.Y;
+              acc_buf[m_ind][n_ind].Z = p_in.Z;
+              acc_buf[m_ind][n_ind].x = p_in.x;
+              acc_buf[m_ind][n_ind].y = p_in.y;
+              acc_buf[m_ind][n_ind].z = p_in.z;
+              acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
+              accum_cnt1++;
+
+              wait();
+
+              if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
+                                                   //accumulate each of the M_ob*N_sr tiles twice
+                
+                // cout << "AB " << id << "level " << level << "\n";
+                for(int m = 0; m < M_ob; m++) { 
+                  for(int n = 0; n < N_sr; n++) { 
+                   
+                    p_out = acc_buf[m][n]; // this sets X,Y,Z,x,y,z headers for final result output
+                    p_out.src = id;
+
+                    // set AB chain in outupt packet
+                    for(int s = 0; s < NUM_LEVELS+1; s++) {
+                      p_out.AB[s] = p_in.AB[s];
+                      // cout << p_in.AB[s] << " ";
+                    }
+                    // cout << "\n";                      
+
+                    for(int s = 0; s < NUM_LEVELS+1; s++) {
+                      if(p_in.AB[s] < id) {
+                        p_out.dst = p_in.AB[s];
+                        break;
+                      }
+                    }
+
+                    p_out.d_type = 2; // result type                    
+                    // if(DEBUG) cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
+                    parent_out.Push(p_out);
+
+                    for (int i = 0; i < tile_sz; i++) {
+                      for (int j = 0; j < tile_sz; j++) {
+                        acc_buf[m][n].data[i][j] = 0; // reset acc_buf to 0;
+                      }
+                    }
+
+                    wait();   
+                  }
+                }
+
+                accum_cnt1 = 0;
+              } 
+            }
+          }
+
+          else {
+            parent_out.Push(p_in);
+            wait();
+          }
+        }
+
+        wait();
+      }
     }
 
 };
 
 #endif
-
-
-
-
-
