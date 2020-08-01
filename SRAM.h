@@ -106,7 +106,6 @@ vector<vector<vector<vector<vector<int> > > > > AB_chains() {
 
 SC_MODULE(SRAM) {
 
-
   Connections::In<PacketSwitch::Packet> sram_dram_in;
   Connections::Out<PacketSwitch::Packet> sram_dram_out;
 
@@ -118,19 +117,17 @@ SC_MODULE(SRAM) {
 
   double io_time;
   double idle_time;
-  // sc_time io_time;
-  // sc_time idle_time;
   int packet_counter;
-
   int result_cnt = 0;
   int wait_cnt = 0;
-  // bool ready = 1;
-  // bool start_send = 0;
-  bool ready_result = 1;
-  bool start_send_result = 0;
 
-  bool heyy = false;
+  sc_mutex  buffer_inp;
+  sc_event  ready_send_inp;
+  sc_event  send_init_inp;
 
+  sc_mutex  buffer_res;
+  sc_event  ready_send_res;
+  sc_event  send_init_res;
 
   vector<vector<PacketSwitch::Packet>> weight_buf;
   vector<vector<PacketSwitch::Packet>> activation_buf;
@@ -142,6 +139,10 @@ SC_MODULE(SRAM) {
   SRAM(sc_module_name name_) : sc_module(name_) {
     
     SC_THREAD(recv_dram);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
+    SC_THREAD(send_to_maestro);
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
@@ -158,45 +159,23 @@ SC_MODULE(SRAM) {
 
   void recv_dram() {
 
-    PacketSwitch::Packet p_out1;
-    PacketSwitch::Packet p_out2;
-
-    sram_dram_in.Reset();
-    packet_out.Reset();
-
-    wait(20.0, SC_NS);
-
     PacketSwitch::Packet p_in;
+    sram_dram_in.Reset();
+    wait(20.0, SC_NS);
 
     int m_cnt = 0; // weight row
     int k_cnt = 0; // weight col / act row
     int n_cnt = 0; // act col
-    // bool buffer_opt = 1;
+    bool send_thread_start_inp = 0;
 
-    int act_block_cnt = 0;
-    int weight_block_cnt = 0;
-
-    int weight_cnt = 0;
-    int act_cnt = 0;
-    int dst_id = 0;
-
-    vector<vector<vector<vector<vector<int> > > > > ab_chains = AB_chains(); // AB_chains for weight packets
-    vector<vector<int> > bcast = bcast_dst(); // bcast headers for data packets
-   
     vector<vector<PacketSwitch::Packet>> weight_blk_sr(M_sr, vector<PacketSwitch::Packet>(K_sr)); 
     vector<vector<PacketSwitch::Packet>> activation_blk_sr(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
-
-    sc_time start, end;
 
     while(1) {
 
       if(sram_dram_in.PopNB(p_in)) {
 
-        // cout << "SRAM Receive packet from DRAM " << sc_time_stamp() << "\n";  
-
-        start = sc_time_stamp();
         if(p_in.d_type == 0) { // receive weights first
-
           weight_blk_sr[p_in.X % M_sr][p_in.Z % K_sr] = p_in;
           k_cnt++;
           
@@ -207,7 +186,6 @@ SC_MODULE(SRAM) {
         }
 
         else if(p_in.d_type == 1) {
-
           activation_blk_sr[p_in.Z % K_sr][p_in.Y % N_sr] = p_in;
           k_cnt++;
 
@@ -218,134 +196,139 @@ SC_MODULE(SRAM) {
         }
       }
 
-      wait();
-
-      // when a full SRAM block (both weight and act) have been stored in SRAM, sweep the SRAM block K first, 
-      // i.e. send each weight/act SRAM_block pair in the snaking pattern, 
-      // with act being sent first, then weight. 
-      // TODO : need to implement weight reuse.   
+      // when a full SRAM block (both weight and act) have been stored in SRAM, trigger sending thread 
       if((m_cnt == M_sr) && (n_cnt ==  N_sr)) {
-        
+
+        buffer_inp.lock();
         weight_buf = weight_blk_sr;
         activation_buf = activation_blk_sr;
-
-        dst_id = 0;
-
-        // Sweep through the SRAM block k-first to load SAs with weights
-        for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
-
-          for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
-
-            // place tiles within each OB k-first 
-            if(DEBUG) cout << "Sending OB weight component from SRAM to Maestro" << "\n";
-            for (int m = 0; m < M_ob; m++) {
-              for (int k = 0; k < K_ob; k++) {
-
-                p_out1 = weight_buf[(m1 * M_ob) + m][(k1 * K_ob) + k];
-                p_out1.x = (m1 * M_ob) + m; 
-                p_out1.y = -1;
-                p_out1.z = (k1 * K_ob) + k;
-                p_out1.SB = k; 
-                p_out1.SA = k + POD_SZ; 
-                p_out1.SRAM = INT_MIN; // sram src
-                p_out1.src = INT_MIN; // sram src
-                p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
-                p_out1.d_type = 0;
-                
-                // set AB_chain header               
-                for(int s = 0; s < NUM_LEVELS; s++) {
-                  p_out1.AB[s] = ab_chains[m1][k1][m][k][s];
-                }
-
-                packet_out.Push(p_out1); 
-                packet_counter++;
-                wait();
-                dst_id++;
-                weight_cnt++;
-              }
-            }
-          }
+        if(!send_thread_start_inp) {
+          send_thread_start_inp = 1;
+          send_init_inp.notify(); // starts the sending thread only after first SRAM blk has been received
         }
-
-
-        for (int n1 = 0; n1 < (N_sr / N_ob); n1++) {
-
-          for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
-
-            if(DEBUG) cout << "Sending OB data component from SRAM to H-tree" << "\n";
-            for (int n = 0; n < N_ob; n++){
-              for (int k = 0; k < K_ob; k++) {
-                
-                p_out2 = activation_buf[(k1 * K_ob) + k][(n1 * N_ob) + n];
-                p_out2.x = -1; // dummy value for x 
-                p_out2.y = (n1 * N_ob) + n;
-                p_out2.z = (k1 * K_ob) + k;
-                p_out2.SB = k; 
-                p_out2.SA = k + POD_SZ; 
-                p_out2.SRAM = INT_MIN; // sram src
-                p_out2.src = INT_MIN; // sram src
-                p_out2.d_type = 1;
-
-                // set bcast header 
-                for(int a = 0; a < 2*NUM_SA - 1; a++) {
-                  p_out2.bcast[a] = bcast[(k1 * K_ob) + k][a];
-                }
-
-                packet_out.Push(p_out2);
-                packet_counter++;
-                wait();
-                act_cnt++;
-                // cout << "SRAM send packet to maestro\n"; 
-              }
-            }
-          }
-        }
-
+        buffer_inp.unlock();
+        ready_send_inp.notify();        
+        
         m_cnt = 0;
         n_cnt = 0;
-        act_block_cnt++;
-        weight_block_cnt++;
-
       }
-    
-      end = sc_time_stamp();
-      io_time += (end - start).to_default_time_units();
-    
-      start = sc_time_stamp();
+
       wait();
-      end = sc_time_stamp();
-      idle_time += (end - start).to_default_time_units();
     }
   }
 
 
 
+  void send_to_maestro() {
 
-
-
-  void send_result_dram() {
-
-    sram_dram_out.Reset();
+    PacketSwitch::Packet p_out1;
+    PacketSwitch::Packet p_out2;
+    packet_out.Reset();
     wait(20.0, SC_NS);
 
-    while(1) {
-      if(start_send_result) {  
+    int act_block_cnt = 0;
+    int weight_block_cnt = 0;
 
-        for(int m = 0; m < M_sr; m++) {
-          for(int n = 0; n < N_sr; n++) {
-            sram_dram_out.Push(result_buf[m][n]);
-            wait();
-            // cout << "SRAM send result to DRAM\n"; 
+    int weight_cnt = 0;
+    int act_cnt = 0;
+    int dst_id;
+
+    vector<vector<vector<vector<vector<int> > > > > ab_chains = AB_chains(); // AB_chains for weight packets
+    vector<vector<int> > bcast = bcast_dst(); // bcast headers for data packets
+
+    // wait for first SRAM block to arrive from DRAM
+    wait(send_init_inp);
+
+    while(1) {
+
+      buffer_inp.lock();
+
+      dst_id = 0;
+      // Sweep through the SRAM block k-first to load SAs with weights, then send data with bcast headers
+      for (int m1 = 0; m1 < (M_sr / M_ob); m1++) {
+
+        for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+
+          // place tiles within each OB k-first 
+          if(DEBUG) cout << "Sending OB weight component from SRAM to Maestro" << "\n";
+          for (int m = 0; m < M_ob; m++) {
+            for (int k = 0; k < K_ob; k++) {
+
+              p_out1 = weight_buf[(m1 * M_ob) + m][(k1 * K_ob) + k];
+              p_out1.x = (m1 * M_ob) + m; 
+              p_out1.y = -1;
+              p_out1.z = (k1 * K_ob) + k;
+              p_out1.SB = k; 
+              p_out1.SA = k + POD_SZ; 
+              p_out1.SRAM = INT_MIN; // sram src
+              p_out1.src = INT_MIN; // sram src
+              p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
+              p_out1.d_type = 0;
+              
+              // set AB_chain header               
+              for(int s = 0; s < NUM_LEVELS; s++) {
+                p_out1.AB[s] = ab_chains[m1][k1][m][k][s];
+              }
+
+              packet_out.Push(p_out1); 
+              packet_counter++;
+              wait();
+              dst_id++;
+              weight_cnt++;
+            }
           }
         }
-
-        ready_result = 1;
-        start_send_result = 0;
       }
 
-      wait();
+
+      for (int n1 = 0; n1 < (N_sr / N_ob); n1++) {
+
+        for (int k1 = 0; k1 < (K_sr / K_ob); k1++) {
+
+          if(DEBUG) cout << "Sending OB data component from SRAM to H-tree" << "\n";
+          for (int n = 0; n < N_ob; n++){
+            for (int k = 0; k < K_ob; k++) {
+              
+              p_out2 = activation_buf[(k1 * K_ob) + k][(n1 * N_ob) + n];
+              p_out2.x = -1; // dummy value for x 
+              p_out2.y = (n1 * N_ob) + n;
+              p_out2.z = (k1 * K_ob) + k;
+              p_out2.SB = k; 
+              p_out2.SA = k + POD_SZ; 
+              p_out2.SRAM = INT_MIN; // sram src
+              p_out2.src = INT_MIN; // sram src
+              p_out2.d_type = 1;
+
+              // set bcast header 
+              for(int a = 0; a < 2*NUM_SA - 1; a++) {
+                p_out2.bcast[a] = bcast[(k1 * K_ob) + k][a];
+              }
+
+              packet_out.Push(p_out2);
+              packet_counter++;
+              wait();
+              act_cnt++;
+              // cout << "SRAM send packet to maestro\n"; 
+            }
+          }
+        }
+      }
+
+      act_block_cnt++;
+      weight_block_cnt++;
+
+      buffer_inp.unlock();
+      wait(ready_send_inp);
+    
+      // end = sc_time_stamp();
+      // io_time += (end - start).to_default_time_units();
+    
+      // start = sc_time_stamp();
+      // end = sc_time_stamp();
+      // idle_time += (end - start).to_default_time_units();
     }
   }
+
 
 
   void recv_result_maestro() {
@@ -354,52 +337,63 @@ SC_MODULE(SRAM) {
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
-
     vector<vector<PacketSwitch::Packet>> result_blk_sr(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
 
-    // ofstream myfile;
-    // myfile.open ("sram_traffic.csv");
-
+    bool send_thread_start_res = 0;
     int p_cnt = 0;
-    // int r = 0;
 
     while(1) {
 
       if(packet_in.PopNB(p_in)) {
-        // collect an entire DRAM block, then send to DRAM
-        // cout << "SRAM Receive result from Maestro\n"; 
 
-        // r++;
-        // cout << "final r_cnt = " << r << "\n";
         result_blk_sr[p_in.X % M_sr][p_in.Y % N_sr] = p_in;
-
         result_cnt++;
         p_cnt++;
-
-        if(p_cnt == (M_sr * N_sr)) {
-
-          while(!ready_result) wait(); // wait to send the next SRAM block until sending thread
-                                // has finished sending the current SRAM block to maestro
-          ready_result = 0;
-          result_buf = result_blk_sr;
-
-          start_send_result = 1;
-          p_cnt = 0;
-        }
       } 
 
-      wait(); 
-      // wait_cnt++; 
-      // if(wait_cnt % 10 == 0) {
-      // cout << sc_time_stamp().to_default_time_units() << " " << result_cnt << "\n";
-      //   myfile << sc_time_stamp().to_default_time_units() << " " << result_cnt << "\n";
-      // }
+      if(p_cnt == (M_sr * N_sr)) {
 
-      // if(result_cnt == Wz*Dx) {
-      //   myfile.close();
-      // }
+        buffer_res.lock();
+        result_buf = result_blk_sr;
+        if(!send_thread_start_res) {
+          send_thread_start_res = 1;
+          send_init_res.notify(); // starts the sending thread only after first SRAM blk has been received
+        }
+        buffer_res.unlock();
+        ready_send_res.notify();        
+
+        p_cnt = 0;
+      }
+
+      wait(); 
     }
   }
+
+
+
+  void send_result_dram() {
+
+    sram_dram_out.Reset();
+    wait(20.0, SC_NS);
+    wait(send_init_res);
+
+    while(1) {
+
+      buffer_res.lock();
+
+      for(int m = 0; m < M_sr; m++) {
+        for(int n = 0; n < N_sr; n++) {
+          sram_dram_out.Push(result_buf[m][n]);
+          wait();
+        }
+      }
+    
+      buffer_res.unlock();
+      wait(ready_send_res);
+    }
+  }
+
+
 
 
 };
