@@ -233,8 +233,6 @@ SC_MODULE(PacketSwitch)
               acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
               accum_cnt++;
 
-              wait();
-
               if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
 
                 for(int n = 0; n < N_sr; n++) { 
@@ -284,8 +282,6 @@ SC_MODULE(PacketSwitch)
               acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
               accum_cnt1++;
 
-              wait();
-
               if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
                                                    //accumulate each of the M_ob*N_sr tiles twice
                 
@@ -295,12 +291,10 @@ SC_MODULE(PacketSwitch)
                    
                     p_out = acc_buf[m][n]; // this sets X,Y,Z,x,y,z headers for final result output
                     p_out.src = id;
-
+                    // set the AB header
                     for(int s = 0; s < NUM_LEVELS+1; s++) {
                       p_out.AB[s] = p_in.AB[s];
-                      // cout << p_in.AB[s] << " ";
                     }
-                    // cout << "\n";                      
 
                     for(int s = 0; s < NUM_LEVELS+1; s++) {
                       if(p_in.AB[s] < id) {
@@ -330,7 +324,6 @@ SC_MODULE(PacketSwitch)
 
           else {
             parent_out.Push(p_in);
-            wait();
           }
         }
 
@@ -361,7 +354,6 @@ SC_MODULE(PacketSwitch)
               acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
               accum_cnt++;
 
-              wait();
 
               if(accum_cnt == K_ob * N_sr * (K/K_sr)) { // accumulate full MM block in the K dim 
 
@@ -412,7 +404,6 @@ SC_MODULE(PacketSwitch)
               acc_buf[m_ind][n_ind].SRAM = p_in.SRAM;
               accum_cnt1++;
 
-              wait();
 
               if(accum_cnt1 == (2 * M_ob * N_sr)) { // At this level only 
                                                    //accumulate each of the M_ob*N_sr tiles twice
@@ -459,7 +450,6 @@ SC_MODULE(PacketSwitch)
 
           else {
             parent_out.Push(p_in);
-            wait();
           }
         }
 
