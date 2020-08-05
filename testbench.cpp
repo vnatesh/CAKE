@@ -68,11 +68,13 @@ SC_MODULE (testbench) {
   Connections::Combinational<PacketSwitch::Packet> parent_in[Sx*Sy-1];
   Connections::Combinational<PacketSwitch::Packet> parent_out[Sx*Sy-1];
 
-  // SB, SA, SRAM connections
+  // SB, SA, AB, and SRAM connections
   Connections::Combinational<PacketSwitch::Packet> sb_in[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sb_out[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sa_in[Sx*Sy];
   Connections::Combinational<PacketSwitch::Packet> sa_out[Sx*Sy];
+  Connections::Combinational<PacketSwitch::Packet> ab_in[Sx*Sy-1];
+  Connections::Combinational<PacketSwitch::Packet> ab_out[Sx*Sy-1];  
   Connections::Combinational<PacketSwitch::Packet> sram_in;
   Connections::Combinational<PacketSwitch::Packet> sram_out;
 
@@ -120,11 +122,19 @@ SC_MODULE (testbench) {
     }
 
     for(int i = 0; i < Sx*Sy - 1; i++) {
+
+      maestro.p_switch[i]->ab_in(ab_in[i]);
+      maestro.ab[i]->packet_out(ab_in[i]);
+      maestro.p_switch[i]->ab_out(ab_out[i]);
+      maestro.ab[i]->packet_in(ab_out[i]);
+      
+      maestro.ab[i]->clk(clk);
+      maestro.ab[i]->rst(rst);
       maestro.p_switch[i]->clk(clk);
       maestro.p_switch[i]->rst(rst);
     }
 
-    // connect each SA and SB pair to a leaf switche
+    // connect each SA and SB pair to a leaf switch
     for(int i = 0; i < Sx*Sy; i++) {
       maestro.leaf_switch[i]->sb_in(sb_in[i]);
       maestro.sb[i]->packet_out(sb_in[i]); 
@@ -167,6 +177,7 @@ SC_MODULE (testbench) {
   }
 
   void run() {
+
     //reset
     rst = 1;
     wait(10.5, SC_NS);
@@ -192,18 +203,24 @@ int sc_main(int argc, char *argv[]) {
     lev = (int) floor(log(i+1) / log(2));
     my_testbench.maestro.p_switch[i]->id = i;
     my_testbench.maestro.p_switch[i]->level = lev;
-  }
-
-  // switches in each level have acc_buf with M_ob*N_sr tiles
-  for(int i = 0; i < NUM_SA - 1; i++) {                                                               
+    my_testbench.maestro.ab[i]->id = i;
+    my_testbench.maestro.ab[i]->level = lev;
+    // ABs in each level have acc_buf with M_ob*N_sr tiles
     vector<vector<PacketSwitch::Packet>> acc_buf(M_ob, vector<PacketSwitch::Packet>(N_sr)); 
-    my_testbench.maestro.p_switch[i]->acc_buf = acc_buf;
+    my_testbench.maestro.ab[i]->acc_buf = acc_buf;
+    vector<PacketSwitch::AddrType> chain_buf(NUM_LEVELS+1, 0);
+    my_testbench.maestro.ab[i]->chain_buf = chain_buf;
   }
 
   for (int i = 0; i < NUM_SA; i++) {
     my_testbench.maestro.leaf_switch[i]->id = i;
   }
 
+  vector<vector<PacketSwitch::Packet>> weight_buf(M_sr, vector<PacketSwitch::Packet>(K_sr)); 
+  my_testbench.sram.weight_buf = weight_buf;
+
+  vector<vector<PacketSwitch::Packet>> activation_buf(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
+  my_testbench.sram.activation_buf = activation_buf;
 
   cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << endl;
   // Create weight and activation matrices with random values
@@ -230,7 +247,16 @@ int sc_main(int argc, char *argv[]) {
   sc_start();
 
   end = sc_time_stamp();
-  cout << "TOTAL SIMULATION TIME = " << (end - start).to_default_time_units() << "\n";
+  int total_time = (end - start).to_default_time_units();
+  cout << "TOTAL SIMULATION TIME = " << total_time << "\n";
+
+  int  SRAM_sz = M_sr*K_sr + K_sr*N_sr;
+  int num_sr_blk = (M/M_sr)*(K/K_sr)*(N/N_sr);
+  int num_packets = (SRAM_sz * num_sr_blk);
+  double SRAM_bw = (double) (((double) num_packets) / ((double) total_time));
+  cout << "packets sent = " << num_packets << "\n";
+  cout << "SRAM bw = " << SRAM_bw << "\n";
+  
 
   bool CORRECT = 1;
   for(int i = 0; i < M*tile_sz; i++) {
@@ -241,30 +267,53 @@ int sc_main(int argc, char *argv[]) {
     }
   }
 
-
   ofstream myfile;
   myfile.open ("results.txt", ios::app);
-
   if(CORRECT) {
-    myfile << "1 ";
-    cout << "\nMMM Result Correct!\n\n";
-  } else {
-    myfile << "0 ";
-    cout << "\nMMM Result Incorrect! :( \n\n";
-  }
+    if(M_sr > K_sr) {
+      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",M"<< "\n";
+    } else if(M_sr < K_sr) {
+      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",K"<< "\n";
+    } else if(M_sr == K_sr) {
+      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",S"<< "\n";
+    }
+
+
+  } 
   myfile.close();
 
 
-  // PERFORMANCE COUNTERS
-  // int tput = 0;
 
-  // tput = (double) (((double) my_testbench.dram.packet_counter_send) / 
-  //         ((double) my_testbench.dram.io_time_send));
-  // cout << "\nDRAM send throughput = " << tput << "\n";
+  // ofstream myfile;
+  // // myfile.open (name.c_str(), ios::out);
+  // myfile.open ("results.txt", ios::app);
+  // if(CORRECT) {
+  //   if(M_sr > K_sr) {
+  //     myfile << "Increase M " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
+  //   } else if(M_sr < K_sr) {
+  //     myfile << "Increase K " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
+  //   } else if(M_sr == K_sr) {
+  //     myfile << "Square M=K " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
+  //   }
+  // } 
+  // myfile.close();
 
-  // tput = (double) (((double) my_testbench.dram.packet_counter_recv) / 
-  //         ((double) my_testbench.dram.io_time_recv));
-  // cout << "\nDRAM receive throughput = " << tput << "\n";
+
+
+
+
+  // ofstream myfile;
+  // myfile.open ("results.txt", ios::app);
+
+  if(CORRECT) {
+    // myfile << "1 ";
+    cout << "\nMMM Result Correct!\n\n";
+  } else {
+    // myfile << "0 ";
+    cout << "\nMMM Result Incorrect! :( \n\n";
+  }
+  // myfile.close();
+
 
   cout << "\nDRAM PERF\n";
   cout << "Packets sent = " << my_testbench.dram.packet_counter_send << "\n";
@@ -278,38 +327,6 @@ int sc_main(int argc, char *argv[]) {
   cout << "IO Time = " << my_testbench.sram.io_time << "\n";
   cout << "Idle Time = " << my_testbench.sram.idle_time << "\n\n";
 
-
-  int mult_cnt = 0;
-  // for(int j = 0; j < NUM_PODS; j++) {
-  //   for(int i = 0; i < POD_SZ; i++) {
-  //     cout << "SA idle time = " << my_testbench.maestro.sa[j][i]->idle_time << "\n";
-  //     cout << "SA IO time = " << my_testbench.maestro.sa[j][i]->io_time << "\n";
-  //     cout << "SA compute time = " << my_testbench.maestro.sa[j][i]->compute_time << "\n";
-  //     cout << "SA Wait cnt = " << my_testbench.maestro.sa[j][i]->wait_cnt << "\n";
-  //     mult_cnt += my_testbench.maestro.sa[j][i]->mult_cnt;
-  //   }
-  // }
-
-  cout << "\nSA PERF\n";
-  cout << "Tiles Multiplied = " << mult_cnt << "\n";
-  // cout << "IO Time = " << io_time << "\n";
-  // cout << "Idle Time = " << idle_time << "\n";
-  // cout << "Compute Time = " << compute_time << "\n\n";
-
-  int packet_cnt = 0;
-  // for(int j = 0; j < NUM_PODS; j++) {
-  //   // cout << "CB idle time = " << my_testbench.maestro.ab[j]->idle_time << "\n";
-  //   // cout << "CB IO time = " << my_testbench.maestro.ab[j]->io_time << "\n";
-  //   // cout << "CB compute time = " << my_testbench.maestro.ab[j]->compute_time << "\n";
-  //   // cout << "CB Wait cnt = " << my_testbench.maestro.ab[j]->wait_cnt << "\n";
-  //   packet_cnt += my_testbench.maestro.ab[j]->packet_counter;
-  // }
-
-  cout << "\nCB PERF\n";
-  cout << "Result Tiles Sent = " << packet_cnt << "\n";
-  // cout << "IO Time = " << io_time << "\n";
-  // cout << "Idle Time = " << idle_time << "\n";
-  // cout << "Compute Time = " << compute_time << "\n\n";
 
 
   return 0;
