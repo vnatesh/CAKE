@@ -6,6 +6,7 @@ import time
 import glob
 
 
+
 arch1 = '''
 #ifndef __ARCH_H__
 #define __ARCH_H__
@@ -40,28 +41,35 @@ K=32
 N=64
 
 
-S = [(2,2),(4,2),(4,4),(8,4),(8,8)]
-M_sr = ['1', 'NUM_PODS']
-K_sr = ['NUM_PODS', '1']
+test_dims = [ [(2, 2), ('1', 'NUM_PODS')], 
+              [(4, 2), ('1', 'NUM_PODS')], 
+              [(4, 4), ('1', 'NUM_PODS')], 
+              [(8, 4), ('1', 'NUM_PODS')], 
+              [(8, 8), ('1', 'NUM_PODS')], 
+              [(4, 2), ('NUM_PODS', '1')], 
+              [(4, 4), ('NUM_PODS', '1')], 
+              [(8, 4), ('NUM_PODS', '1')], 
+              [(8, 8), ('NUM_PODS', '1')], 
+              [(4, 4), ('NUM_PODS/2', 'NUM_PODS/2')], 
+              [(8, 8), ('NUM_PODS/2', 'NUM_PODS/2')]]
 
+f = open("results.txt", 'w')
+f.write("number of SAs,number of packets,number of cycles,SRAM bw,M-K increase\n")
+f.close()
 
-S = [(2,2),(4,4),(8,8)]
-M_sr = ['NUM_PODS/2', 'NUM_PODS/2']
-K_sr = ['NUM_PODS/2', 'NUM_PODS/2']
 
 
 exec_num = 0;
-for i in xrange(len(M_sr)):
-  for j in S:
-    a1 = '''
+for i in xrange(len(test_dims)):
+  a1 = '''
 const static int Sx = %d;
 const static int Sy = %d;
-''' % (j[0],j[1])
-    a2 = '''
+''' % (test_dims[i][0][0],test_dims[i][0][1])
+  a2 = '''
 const static int M_sr = M_ob * %s; 
 const static int K_sr = K_ob * %s;
-''' % (M_sr[i],K_sr[i])
-    a3 = '''
+''' % (test_dims[i][1][0],test_dims[i][1][1])
+  a3 = '''
 const static int N_sr = N_ob;
 const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
 const static int M = %d;
@@ -69,71 +77,13 @@ const static int K = %d;
 const static int N = %d;
 #endif
 ''' % (M,K,N)
-    arch = arch1 + a1 + arch2 + a2 + a3
-    os.remove("arch.h")
-    f = open("arch.h", 'w')
-    f.write(arch)
-    f.close()
-    cmd = 'make > /dev/null 2>&1; mv sim_test sim_test%d; ./sim_test%d > /dev/null 2>&1 &' % (exec_num, exec_num)
-    subprocess.call(cmd, shell=True)
-    exec_num += 1
+  arch = arch1 + a1 + arch2 + a2 + a3
+  os.remove("arch.h")
+  f = open("arch.h", 'w')
+  f.write(arch)
+  f.close()
+  cmd = 'make > /dev/null 2>&1; mv sim_test sim_test%d; ./sim_test%d > /dev/null 2>&1 &' % (exec_num, exec_num)
+  subprocess.call(cmd, shell=True)
+  exec_num += 1
     
-
-
-
-
-
-
-
-MAX = 3
-
-# for m in range(1,MAX+1):
-#   for k in range(1,MAX+1):
-#     for n in range(1,MAX+1):
-#       a = arch + '''
-# const static int M_sr = M_ob;
-# const static int K_sr = K_ob;
-# const static int N_sr = N_ob;
-
-# const static int M = M_sr*%d;
-# const static int K = K_sr*%d;
-# const static int N = N_sr*%d;
-# #endif\n\n''' % (m,k,n)
-#       os.remove("arch.h")
-#       f = open("arch.h", 'w')
-#       f.write(a)
-#       subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1 &'], shell=True)
-#       f.close()
-
-for m in range(1,MAX+1):
-  for k in range(1,MAX+1):
-    for n in range(1,MAX+1):
-      for M in range(1,MAX+1):
-        for K in range(1,MAX+1):
-          for N in range(1,MAX+1):
-            a = arch + '''
-const static int M_sr = M_ob*%d;
-const static int K_sr = K_ob*%d;
-const static int N_sr = N_ob*%d;
-const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
-const static int M = M_sr*%d;
-const static int K = K_sr*%d;
-const static int N = N_sr*%d;
-#endif\n\n''' % (m,k,n,M,K,N)
-            os.remove("arch.h")
-            f = open("arch.h", 'w')
-            f.write(a)
-            subprocess.call(['make > /dev/null 2>&1; make run > /dev/null 2>&1 &'], shell=True)
-            f.close()
-
-
-time.sleep(320)
-
-
-f = open("results.txt", 'r')
-results = f.read().split()
-if(all([i == '1' for i in results]) and len(results) == MAX**6):
-  print "ALL TESTS PASSED"
-else:
-  print "FAILED"
 
