@@ -115,16 +115,6 @@ SC_MODULE(AB)
             accum_cnt1 = 0;
             chain_buf_local = zero_chain_buf;
             acc_buf_local = zero_acc_buf;
-
-            // for (int m = 0; m < M_ob; m++) {
-            //   for (int n = 0; n < N_sr; n++) {
-            //     for (int i = 0; i < tile_sz; i++) {
-            //       for (int j = 0; j < tile_sz; j++) {
-            //         acc_buf_local[m][n].data[i][j] = 0; 
-            //       }
-            //     }
-            //   }
-            // }
           }
         }
 
@@ -175,15 +165,6 @@ SC_MODULE(AB)
             accum_cnt2 = 0;
             chain_buf_local = zero_chain_buf;
             acc_buf_local = zero_acc_buf; 
-            // for (int m = 0; m < M_ob; m++) {
-            //   for (int n = 0; n < N_sr; n++) {
-            //     for (int i = 0; i < tile_sz; i++) {
-            //       for (int j = 0; j < tile_sz; j++) {
-            //         acc_buf_local[m][n].data[i][j] = 0; 
-            //       }
-            //     }
-            //   }
-            // }
           } 
         }
       }
