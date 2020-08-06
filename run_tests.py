@@ -50,8 +50,8 @@ test_dims = [ [(2, 2), ('1', 'NUM_PODS')],
               [(4, 4), ('NUM_PODS', '1')], 
               [(8, 4), ('NUM_PODS', '1')], 
               [(8, 8), ('NUM_PODS', '1')], 
-              [(4, 4), ('NUM_PODS/2', 'NUM_PODS/2')], 
-              [(8, 8), ('NUM_PODS/2', 'NUM_PODS/2')]]
+              [(4, 4), ('2', '2')], 
+              [(8, 8), ('4', '4')]]
 
 f = open("results.txt", 'w')
 f.write("number of SAs,number of packets,number of cycles,SRAM bw,M-K increase\n")
@@ -86,4 +86,3 @@ const static int N = %d;
   subprocess.call(cmd, shell=True)
   exec_num += 1
     
-
