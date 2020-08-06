@@ -93,7 +93,7 @@ SC_MODULE(DRAM) {
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
               // wait(20);
-              wait();
+              // wait();
               packet_counter_send++;
             }
           }
@@ -117,7 +117,7 @@ SC_MODULE(DRAM) {
               p_out2.d_type = 1;
               packet_out.Push(p_out2);
               // wait(20);
-              wait();
+              // wait();
               packet_counter_send++;
             }
           }
