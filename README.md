@@ -9,6 +9,4 @@ make all
 ```
 
 ## Usage
-Architecture configuration is set by changing values in the arch.h file.
-
-For more information see the wiki.
+See [wiki](https://github.com/vnatesh/maestro/wiki) for usage.
