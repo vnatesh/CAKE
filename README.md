@@ -9,4 +9,4 @@ make all
 ```
 
 ## Usage
-See wiki for usage.
+See [wiki](https://github.com/vnatesh/maestro/wiki) for usage.
