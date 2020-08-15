@@ -20,8 +20,8 @@ all: sim_test
 run:
 	./sim_test
 
-sim_test: $(wildcard *.h) $(wildcard *.cpp) $(wildcard */*.cpp)
-	$(CC) -o sim_test $(CFLAGS) $(USER_FLAGS) $(wildcard */*.cpp) $(BOOSTLIBS) $(LIBS)
+sim_test: $(wildcard src/*.h) $(wildcard src/*.cpp) 
+	$(CC) -o sim_test $(CFLAGS) $(USER_FLAGS) $(wildcard src/*.cpp) $(BOOSTLIBS) $(LIBS)
 
 sim_clean:
 	rm -rf *.o sim_*
