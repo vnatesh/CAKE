@@ -1,5 +1,3 @@
-
-
 # Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License")
@@ -22,8 +20,8 @@ all: sim_test
 run:
 	./sim_test
 
-sim_test: $(wildcard *.h) $(wildcard *.cpp)
-	$(CC) -o sim_test $(CFLAGS) $(USER_FLAGS) $(wildcard *.cpp) $(BOOSTLIBS) $(LIBS)
+sim_test: $(wildcard *.h) $(wildcard *.cpp) $(wildcard */*.cpp)
+	$(CC) -o sim_test $(CFLAGS) $(USER_FLAGS) $(wildcard */*.cpp) $(BOOSTLIBS) $(LIBS)
 
 sim_clean:
 	rm -rf *.o sim_*
