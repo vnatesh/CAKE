@@ -88,12 +88,12 @@ SC_MODULE(DRAM) {
               p_out1.Z = (k1 * K_sr) + k;
 
               // wait(10);
-              wait();
+              wait(lat_dram);
 
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
               // wait(20);
-              // wait();
+              // wait(lat_dram);
               packet_counter_send++;
             }
           }
@@ -113,11 +113,11 @@ SC_MODULE(DRAM) {
               p_out2.Z = (k1 * K_sr) + k;
 
               // wait(10);
-              wait();
+              wait(lat_dram);
               p_out2.d_type = 1;
               packet_out.Push(p_out2);
               // wait(20);
-              // wait();
+              // wait(lat_dram);
               packet_counter_send++;
             }
           }
@@ -162,14 +162,14 @@ SC_MODULE(DRAM) {
         if(p_cnt == (M * N)) {
           end = sc_time_stamp();
           io_time_recv += (end - start).to_default_time_units();
-          cout << "\n\nMAESTRO MMM RESULT\n\n";
-          PrintMat(result); 
+          // cout << "\n\nMAESTRO MMM RESULT\n\n";
+          // PrintMat(result); 
           sc_stop(); // STOP the stimulation here
         }
       }
 
       // wait(5);
-      wait();
+      wait(lat_dram);
     }
   }
 
