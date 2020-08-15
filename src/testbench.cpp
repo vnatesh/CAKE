@@ -17,6 +17,7 @@
 #include "DRAM.h"
 #include "SRAM.h"
 #include "maestro.h"
+#include "matops.h"
 
 #include <systemc.h>
 #include <mc_scverify.h>
@@ -31,19 +32,6 @@ using namespace::std;
 #include <testbench/nvhls_rand.h>
 
 // module load ~/cs148/catapult
-
-template<typename T> vector<vector<T>> GetMat(int rows, int cols) {
-
-  vector<vector<T>> mat(rows, vector<T>(cols)); 
-
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-      mat[i][j] = (nvhls::get_rand<8>()) % 4; // 8 bit numbers for weight and activation
-    }
-  }
-
-  return mat;
-}
 
 
 SC_MODULE (testbench) {
@@ -191,8 +179,6 @@ SC_MODULE (testbench) {
 
 
 
-// TODO : experiment with different wait() times in different places.
-// TODO : print the final result in SRAM in a neat format
 int sc_main(int argc, char *argv[]) {
   
   nvhls::set_random_seed();
@@ -222,7 +208,7 @@ int sc_main(int argc, char *argv[]) {
   vector<vector<PacketSwitch::Packet>> activation_buf(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
   my_testbench.sram.activation_buf = activation_buf;
 
-  cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << endl;
+  cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
   // Create weight and activation matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
@@ -233,14 +219,14 @@ int sc_main(int argc, char *argv[]) {
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
 
-  // if(DEBUG) {
+  if(DEBUG) {
     cout << "Weight matrix: \n";
     PrintMat(my_testbench.dram.weights);
     cout << "Activation matrix: \n";
     PrintMat(my_testbench.dram.activations);
     cout << "Reference Output: \n";
     PrintMat(ref_out);
-  // }
+  }
 
   sc_time start, end;
   start = sc_time_stamp();
@@ -250,13 +236,20 @@ int sc_main(int argc, char *argv[]) {
   int total_time = (end - start).to_default_time_units();
   cout << "TOTAL SIMULATION TIME = " << total_time << "\n";
 
+
   int  SRAM_sz = M_sr*K_sr + K_sr*N_sr;
   int num_sr_blk = (M/M_sr)*(K/K_sr)*(N/N_sr);
   int num_packets = (SRAM_sz * num_sr_blk);
   double SRAM_bw = (double) (((double) num_packets) / ((double) total_time));
   cout << "packets sent = " << num_packets << "\n";
-  cout << "SRAM bw = " << SRAM_bw << "\n";
-  
+  int comp_time = my_testbench.maestro.sa[0]->compute_time;
+  cout << "SA compute cycles = " << comp_time << "\n";
+
+
+  int IO_d_ideal = NUM_PODS * alpha * POD_SZ;
+  int IO_w = NUM_PODS * POD_SZ;
+  int SRAM_sz_ideal = IO_d_ideal + IO_w;
+  double SRAM_growth = ((double) SRAM_sz) / ((double) SRAM_sz_ideal);
 
   bool CORRECT = 1;
   for(int i = 0; i < M*tile_sz; i++) {
@@ -270,41 +263,21 @@ int sc_main(int argc, char *argv[]) {
   ofstream myfile;
   myfile.open ("results.txt", ios::app);
   if(CORRECT) {
-    if(M_sr > K_sr) {
-      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",M"<< "\n";
-    } else if(M_sr < K_sr) {
-      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",K"<< "\n";
-    } else if(M_sr == K_sr) {
-      myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << ",S"<< "\n";
-    }
-
-
+    if(M_sr >= K_sr) {
+      myfile << NUM_SA << "," << num_packets << "," << 
+      total_time << "," << SRAM_bw << "," << comp_time << "," 
+      << SRAM_growth << "," << R << ",M"<< "\n";
+    } // else if(M_sr < K_sr) {
+    //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",K"<< "\n";
+    // } else if(M_sr == K_sr) {
+    //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",S"<< "\n";
+    // }
   } 
   myfile.close();
 
 
-
-  // ofstream myfile;
-  // // myfile.open (name.c_str(), ios::out);
-  // myfile.open ("results.txt", ios::app);
-  // if(CORRECT) {
-  //   if(M_sr > K_sr) {
-  //     myfile << "Increase M " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
-  //   } else if(M_sr < K_sr) {
-  //     myfile << "Increase K " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
-  //   } else if(M_sr == K_sr) {
-  //     myfile << "Square M=K " << NUM_SA << " " << num_packets <<  " " << total_time << "\n";
-  //   }
-  // } 
-  // myfile.close();
-
-
-
-
-
   // ofstream myfile;
   // myfile.open ("results.txt", ios::app);
-
   if(CORRECT) {
     // myfile << "1 ";
     cout << "\nMMM Result Correct!\n\n";
@@ -322,10 +295,10 @@ int sc_main(int argc, char *argv[]) {
   cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
 
 
-  cout << "\nSRAM PERF\n";
-  cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
-  cout << "IO Time = " << my_testbench.sram.io_time << "\n";
-  cout << "Idle Time = " << my_testbench.sram.idle_time << "\n\n";
+  // cout << "\nSRAM PERF\n";
+  // cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
+  // cout << "IO Time = " << my_testbench.sram.io_time << "\n";
+  // cout << "Idle Time = " << my_testbench.sram.idle_time << "\n\n";
 
 
 

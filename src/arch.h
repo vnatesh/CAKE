@@ -14,10 +14,9 @@
 const static bool DEBUG = 0;
 const static int tile_sz = 2; // change to 8 later
 
-const static double R = 1.25; // DRAM banwidth 
+const static double R = 2; // DRAM banwidth 
 const static int alpha = (int) (1 / (R-1));
-const static int lat_dram = 24; // DRAM latency 
-const static int SR_sz_factor = NUM_PODS;
+const static int lat_dram = 3; // DRAM latency 
 
 // number of SAs on H-tree (square 2d array of SAs)
 const static int Sx = 4;
@@ -30,6 +29,7 @@ const static int sx = 2;
 const static int sy = 2;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
+const static int SR_sz_factor = NUM_PODS; // factor by which we grow SRAM in the N dimension when compute capacity increases
 
 // An operation block is sized/shaped to a pod and available DRAM bw
 const static int M_ob = sy; // Size of block in the M dimension in terms of tiles
@@ -52,9 +52,9 @@ const static int N_sr = N_ob;
 const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
 
 // Full MM block is a 3d collection of SRAM blocks
-const static int M = M_sr*4;
-const static int K = K_sr*16;
-const static int N = N_sr*4;
+const static int M = 32;
+const static int K = 32;
+const static int N = 64;
 
 
 #endif

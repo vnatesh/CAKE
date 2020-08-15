@@ -2,6 +2,7 @@
 #define __SA_H__
 
 #include "PacketSwitch.h"
+#include "matops.h"
 
 
 SC_MODULE(SA)
@@ -73,7 +74,7 @@ SC_MODULE(SA)
 
       if(is_act_in) { // do matmul and send result
 
-        // packet reg at this point contains the activation header. This allows ourgoing 
+        // packet reg at this point contains the activation header. This allows outgoing 
         // result packet to automatically contain Y,Z,x,y,z dims
         start = sc_time_stamp();
         packet_reg.data = TileMul(weight.data, activation.data); 
