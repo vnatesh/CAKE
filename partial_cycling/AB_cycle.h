@@ -77,6 +77,7 @@ SC_MODULE(AB)
 
 
     int n_ind;
+    p_in2.cycle_cnt = 0;
 
 
     while(1) {
@@ -159,8 +160,16 @@ SC_MODULE(AB)
           }
 
           p_out.dst = chain_buf[1]; // send to next AB (or SRAM) in chain
-          p_out.d_type = 2; // partial result type
 
+
+          p_out.cycle_cnt = p_in2.cycle_cnt + 1; // partial result type
+          if(p_out.cycle_cnt == K/K_sr) {
+            p_out.d_type = 3; //  result type
+            p_out.cycle_cnt = 0;
+            p_in2.cycle_cnt = 0;
+          } else {
+            p_out.d_type = 2; // partial result type
+          }
 
           packet_out.Push(p_out);
           // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";

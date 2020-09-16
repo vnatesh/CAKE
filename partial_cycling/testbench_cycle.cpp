@@ -246,7 +246,8 @@ int sc_main(int argc, char *argv[]) {
   vector<vector<PacketSwitch::Packet>> activation_buf(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
   my_testbench.sram.activation_buf = activation_buf;
 
-  vector<vector<PacketSwitch::Packet>> result_buf(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
+  // vector<vector<PacketSwitch::Packet>> result_buf(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
+  vector<vector<PacketSwitch::Packet>> result_buf(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
   my_testbench.sram.result_buf = result_buf;
 
 
@@ -339,6 +340,7 @@ int sc_main(int argc, char *argv[]) {
   cout << "Packets received = " << my_testbench.dram.packet_counter_recv << "\n";
   cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
 
+  cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
 
   // cout << "\nSRAM PERF\n";
   // cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";

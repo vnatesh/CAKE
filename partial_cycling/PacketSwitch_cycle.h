@@ -38,10 +38,11 @@ SC_MODULE(PacketSwitch)
         AddrType SRAM;
         AddrType src;
         AddrType dst;
+        AddrType cycle_cnt;
         ID_type d_type; // weight (0), activation (1), result (2)
         BcastVectorType bcast;
 
-        static const unsigned int width = ID_type::width + 11 * AddrType::width 
+        static const unsigned int width = ID_type::width + 12 * AddrType::width 
                                         + VectorType::width + BcastVectorType::width
                                         + AB_ChainType::width; // sizeof(int) * N;
 
@@ -60,6 +61,7 @@ SC_MODULE(PacketSwitch)
           m& SRAM;
           m& src;
           m& dst;
+          m& cycle_cnt;
           m& d_type;
           m& bcast;
         }
