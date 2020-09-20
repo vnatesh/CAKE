@@ -5,6 +5,7 @@
 
 
 
+
 SC_MODULE(PacketSwitch)
 {
     public:
@@ -38,11 +39,10 @@ SC_MODULE(PacketSwitch)
         AddrType SRAM;
         AddrType src;
         AddrType dst;
-        AddrType cycle_cnt;
         ID_type d_type; // weight (0), activation (1), result (2)
         BcastVectorType bcast;
 
-        static const unsigned int width = ID_type::width + 12 * AddrType::width 
+        static const unsigned int width = ID_type::width + 11 * AddrType::width 
                                         + VectorType::width + BcastVectorType::width
                                         + AB_ChainType::width; // sizeof(int) * N;
 
@@ -61,14 +61,10 @@ SC_MODULE(PacketSwitch)
           m& SRAM;
           m& src;
           m& dst;
-          m& cycle_cnt;
           m& d_type;
           m& bcast;
         }
     };
-
-    AddrType ab_id; // id for the associated AB
-
     
     ID_type id; // id for the switch and associated AB
     ID_type level; // id for level of this switch in the h-tree
@@ -83,10 +79,6 @@ SC_MODULE(PacketSwitch)
     Connections::Out<Packet>    parent_out;
     Connections::Out<Packet>    ab_out;
 
-    Connections::Out<Packet>    left_partial_out; 
-    Connections::Out<Packet>    right_partial_out;
-    Connections::In<Packet>     parent_partial_in;
-    Connections::Out<Packet>    ab_partial_out;
 
 
     SC_HAS_PROCESS(PacketSwitch);
@@ -99,53 +91,6 @@ SC_MODULE(PacketSwitch)
       SC_THREAD (recv_children); 
       sensitive << clk.pos(); 
       NVHLS_NEG_RESET_SIGNAL_IS(rst);
-
-      SC_THREAD (recv_partial); 
-      sensitive << clk.pos(); 
-      NVHLS_NEG_RESET_SIGNAL_IS(rst);
-
-    }
-
-
-
-    void recv_partial() {
-
-      left_partial_out.Reset();
-      right_partial_out.Reset();
-      parent_partial_in.Reset();
-      ab_partial_out.Reset();
-      wait(20.0, SC_NS); // wait for reset
-      
-      Packet p_in;
-
-      while (1) {
-
-        if(parent_partial_in.PopNB(p_in)) {
-          // if packet came from SRAM, send it down left/right children
-          if(p_in.src == INT_MIN && p_in.d_type == 2) {
-            if(p_in.dst == id) {
-              ab_partial_out.Push(p_in);        // send partial result to AB
-            } else {
-
-              int dst = p_in.dst;
-              while(1) {
-                if(dst == (2*id + 1)) { // if addr is left child, go left
-                  left_partial_out.Push(p_in);
-                  break;
-                } else if(dst == (2*id + 2)) {   // if addr is right child, go right
-                  right_partial_out.Push(p_in);
-                  break;
-                } else {
-                  dst = (dst - 1) / 2; // parent addr
-                }
-              }
-            }
-            // wait(lat_internal);
-          }
-        }
-
-        wait();
-      }
     }
 
 
@@ -177,8 +122,6 @@ SC_MODULE(PacketSwitch)
                 left_out.Push(p_in);
               }
             }
-
-            // wait(lat_internal);  
           }
         } 
 
@@ -196,48 +139,33 @@ SC_MODULE(PacketSwitch)
       parent_out.Reset();
       wait(20.0, SC_NS); // wait for reset
       
-      Packet p_in_left;
-      Packet p_in_right;
-      Packet p_in_ab;
-
-      bool pac_in = 0;
+      Packet p_in;
 
       while(1) {
 
-        if(left_in.PopNB(p_in_left)) {
-          if(p_in_left.dst == id) {
-            ab_out.Push(p_in_left);
+        if(left_in.PopNB(p_in)) {
+          if(p_in.dst == id) {
+            ab_out.Push(p_in);
           } else {
-            parent_out.Push(p_in_left);
+            parent_out.Push(p_in);
           }
-          pac_in = 1;
         }
 
-        if(right_in.PopNB(p_in_right)) {
-          if(p_in_right.dst == id) {
-            ab_out.Push(p_in_right);
+        if(right_in.PopNB(p_in)) {
+          if(p_in.dst == id) {
+            ab_out.Push(p_in);
           } else {
-            parent_out.Push(p_in_right);
+            parent_out.Push(p_in);
           }
-          pac_in = 1;
         }
 
-        if(ab_in.PopNB(p_in_ab)) {
-          parent_out.Push(p_in_ab); 
-          pac_in = 1;         
-        }
-
-        if(pac_in) {
-          // wait(lat_internal);
-          pac_in = 0;
+        if(ab_in.PopNB(p_in)) {
+          parent_out.Push(p_in);          
         }
 
         wait();
       }
     }
-
-
-
 
 
 };

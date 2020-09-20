@@ -15,9 +15,6 @@ SC_MODULE(LeafSwitch)
     Connections::In<PacketSwitch::Packet>   sa_in;
     Connections::In<PacketSwitch::Packet>   parent_in;
 
-    Connections::In<PacketSwitch::Packet>   partial_in;
-
-
     Connections::Out<PacketSwitch::Packet>    sb_out; 
     Connections::Out<PacketSwitch::Packet>    sa_out;
     Connections::Out<PacketSwitch::Packet>    parent_out;

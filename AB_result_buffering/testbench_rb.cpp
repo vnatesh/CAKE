@@ -17,6 +17,7 @@
 #include "DRAM.h"
 #include "SRAM.h"
 #include "maestro.h"
+#include "matops.h"
 
 #include <systemc.h>
 #include <mc_scverify.h>
@@ -32,7 +33,6 @@ using namespace::std;
 
 // module load ~/cs148/catapult
 
-#include "matops.h"
 
 SC_MODULE (testbench) {
 
@@ -47,7 +47,6 @@ SC_MODULE (testbench) {
   // SRAM-maestro connections
   Connections::Combinational<PacketSwitch::Packet> sram_maestro_out;  
   Connections::Combinational<PacketSwitch::Packet> sram_maestro_in;  
-  Connections::Combinational<PacketSwitch::Packet> sram_maestro_partial_out;  
 
   // switch connections
   Connections::Combinational<PacketSwitch::Packet> left_in[Sx*Sy-1];
@@ -67,13 +66,6 @@ SC_MODULE (testbench) {
   Connections::Combinational<PacketSwitch::Packet> sram_in;
   Connections::Combinational<PacketSwitch::Packet> sram_out;
 
-  Connections::Combinational<PacketSwitch::Packet> ab_partial_out[Sx*Sy-1];
-
-  Connections::Combinational<PacketSwitch::Packet> left_partial_out[Sx*Sy-1];
-  Connections::Combinational<PacketSwitch::Packet> right_partial_out[Sx*Sy-1];
-  Connections::Combinational<PacketSwitch::Packet> sram_partial_in;
-
-
   sc_clock clk;
   sc_signal<bool> rst;
 
@@ -89,11 +81,6 @@ SC_MODULE (testbench) {
     maestro.p_switch[0]->parent_out(sram_out);
     maestro.packet_in(sram_out);
 
-
-    maestro.p_switch[0]->parent_partial_in(sram_partial_in);
-    maestro.partial_out(sram_partial_in);
-
-
     // connect the interior switches together as a binary tree
     for(int i = 0; i < ((Sx*Sy)/2) - 1; i++) {
       maestro.p_switch[i]->left_in(left_in[i]); 
@@ -101,17 +88,10 @@ SC_MODULE (testbench) {
       maestro.p_switch[i]->left_out(left_out[i]); 
       maestro.p_switch[2*i+1]->parent_in(left_out[i]); 
 
-      maestro.p_switch[i]->left_partial_out(left_partial_out[i]); 
-      maestro.p_switch[2*i+1]->parent_partial_in(left_partial_out[i]); 
-
       maestro.p_switch[i]->right_in(right_in[i]); 
       maestro.p_switch[2*i+2]->parent_out(right_in[i]); 
       maestro.p_switch[i]->right_out(right_out[i]); 
       maestro.p_switch[2*i+2]->parent_in(right_out[i]); 
-
-      maestro.p_switch[i]->right_partial_out(right_partial_out[i]); 
-      maestro.p_switch[2*i+2]->parent_partial_in(right_partial_out[i]); 
-
     }
 
     // connect the last level of interior switches to the leaf switches
@@ -126,18 +106,9 @@ SC_MODULE (testbench) {
       maestro.leaf_switch[j+1]->parent_out(right_in[i]);
       maestro.p_switch[i]->right_out(right_out[i]); 
       maestro.leaf_switch[j+1]->parent_in(right_out[i]);
-
-      maestro.p_switch[i]->left_partial_out(left_partial_out[i]); 
-      maestro.leaf_switch[j]->partial_in(left_partial_out[i]);
-      maestro.p_switch[i]->right_partial_out(right_partial_out[i]); 
-      maestro.leaf_switch[j+1]->partial_in(right_partial_out[i]);
-
-
       j += 2;
     }
 
-
-    // connect an AB to eat switch 
     for(int i = 0; i < Sx*Sy - 1; i++) {
 
       maestro.p_switch[i]->ab_in(ab_in[i]);
@@ -145,9 +116,6 @@ SC_MODULE (testbench) {
       maestro.p_switch[i]->ab_out(ab_out[i]);
       maestro.ab[i]->packet_in(ab_out[i]);
       
-      maestro.p_switch[i]->ab_partial_out(ab_partial_out[i]);
-      maestro.ab[i]->partial_in(ab_partial_out[i]);
-
       maestro.ab[i]->clk(clk);
       maestro.ab[i]->rst(rst);
       maestro.p_switch[i]->clk(clk);
@@ -186,10 +154,6 @@ SC_MODULE (testbench) {
     maestro.maestro_sram_out(sram_maestro_in);
     sram.packet_in(sram_maestro_in);  
 
-    maestro.maestro_partial_in(sram_maestro_partial_out);
-    sram.sram_partial_out(sram_maestro_partial_out);  
-
-
     maestro.clk(clk);
     maestro.rst(rst);
     sram.clk(clk);
@@ -217,8 +181,6 @@ SC_MODULE (testbench) {
 
 int sc_main(int argc, char *argv[]) {
   
-  remove("log/logfile.txt"); 
-  logfile.open("log/logfile.txt", ios::app);
   nvhls::set_random_seed();
   testbench my_testbench("my_testbench");
 
@@ -246,12 +208,6 @@ int sc_main(int argc, char *argv[]) {
   vector<vector<PacketSwitch::Packet>> activation_buf(K_sr, vector<PacketSwitch::Packet>(N_sr)); 
   my_testbench.sram.activation_buf = activation_buf;
 
-  // vector<vector<PacketSwitch::Packet>> result_buf(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
-  vector<vector<PacketSwitch::Packet>> result_buf(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
-  my_testbench.sram.result_buf = result_buf;
-
-
-
   cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
   // Create weight and activation matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
@@ -263,14 +219,14 @@ int sc_main(int argc, char *argv[]) {
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
 
-  // if(DEBUG) {
+  if(DEBUG) {
     cout << "Weight matrix: \n";
     PrintMat(my_testbench.dram.weights);
     cout << "Activation matrix: \n";
     PrintMat(my_testbench.dram.activations);
     cout << "Reference Output: \n";
     PrintMat(ref_out);
-  // }
+  }
 
   sc_time start, end;
   start = sc_time_stamp();
@@ -280,8 +236,6 @@ int sc_main(int argc, char *argv[]) {
   int total_time = (end - start).to_default_time_units();
   cout << "TOTAL SIMULATION TIME = " << total_time << "\n";
 
-
-  logfile.close();
 
   int  SRAM_sz = M_sr*K_sr + K_sr*N_sr;
   int num_sr_blk = (M/M_sr)*(K/K_sr)*(N/N_sr);
@@ -340,7 +294,6 @@ int sc_main(int argc, char *argv[]) {
   cout << "Packets received = " << my_testbench.dram.packet_counter_recv << "\n";
   cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
 
-  cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
 
   // cout << "\nSRAM PERF\n";
   // cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
