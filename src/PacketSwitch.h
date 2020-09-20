@@ -67,7 +67,7 @@ SC_MODULE(PacketSwitch)
         }
     };
 
-    AddrType ab_id; // id for the associated AB
+    // AddrType ab_id; // id for the associated AB
 
     
     ID_type id; // id for the switch and associated AB
@@ -200,18 +200,8 @@ SC_MODULE(PacketSwitch)
       Packet p_in_right;
       Packet p_in_ab;
 
-      bool pac_in = 0;
-
+      // read first from right before left since left SA processes packets before right SA
       while(1) {
-
-        if(left_in.PopNB(p_in_left)) {
-          if(p_in_left.dst == id) {
-            ab_out.Push(p_in_left);
-          } else {
-            parent_out.Push(p_in_left);
-          }
-          pac_in = 1;
-        }
 
         if(right_in.PopNB(p_in_right)) {
           if(p_in_right.dst == id) {
@@ -219,19 +209,20 @@ SC_MODULE(PacketSwitch)
           } else {
             parent_out.Push(p_in_right);
           }
-          pac_in = 1;
+        }
+
+        if(left_in.PopNB(p_in_left)) {
+          if(p_in_left.dst == id) {
+            ab_out.Push(p_in_left);
+          } else {
+            parent_out.Push(p_in_left);
+          }
         }
 
         if(ab_in.PopNB(p_in_ab)) {
           parent_out.Push(p_in_ab); 
-          pac_in = 1;         
         }
-
-        if(pac_in) {
-          // wait(lat_internal);
-          pac_in = 0;
-        }
-
+      
         wait();
       }
     }
