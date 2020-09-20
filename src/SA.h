@@ -73,7 +73,6 @@ SC_MODULE(SA)
       io_time += (end - start).to_default_time_units();
 
       if(is_act_in) { // do matmul and send result
-
         // packet reg at this point contains the activation header. This allows outgoing 
         // result packet to automatically contain Y,Z,x,y,z dims
         start = sc_time_stamp();
@@ -85,6 +84,7 @@ SC_MODULE(SA)
         packet_reg.d_type = 2; // result type  
         if(DEBUG) cout << "SA " << packet_reg.src << " sending result to AB\n";
         packet_out.Push(packet_reg);
+        if(LOG) log_packet("SA", "AB", id, packet_reg);
         // r++;
         // if(packet_reg.x == 0 && id == POD_SZ) cout << "r_cnt = " << r << " time " << sc_time_stamp() << "\n";
         wait();

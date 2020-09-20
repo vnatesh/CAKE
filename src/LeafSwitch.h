@@ -1,5 +1,3 @@
-
-
 #ifndef __LEAFSWITCH_H__
 #define __LEAFSWITCH_H__
 #include "arch.h"
