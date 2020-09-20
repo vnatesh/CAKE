@@ -125,16 +125,11 @@ SC_MODULE(SRAM) {
   int result_cnt = 0;
   int wait_cnt = 0;
 
-
-  int received_cnt = 0;
-
-
   sc_mutex  buffer_inp;
   sc_event  ready_send_inp;
   sc_event  send_init_inp;
 
-  // sc_mutex  buffer_res;
-  // sc_event  ready_send_res;
+  sc_mutex  buffer_res;
   sc_mutex  ready_send_res;
   sc_event  send_init_res;
 
@@ -142,10 +137,6 @@ SC_MODULE(SRAM) {
   vector<vector<PacketSwitch::Packet>> activation_buf;
   vector<vector<PacketSwitch::Packet>> result_buf;
 
-    // vector<vector<PacketSwitch::Packet>> result_blk_sr(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
-
-  bool buffer_res = 0;
-  bool hey = 0;
 
   SC_HAS_PROCESS(SRAM);
   SRAM(sc_module_name name_) : sc_module(name_) {
@@ -288,7 +279,7 @@ SC_MODULE(SRAM) {
               wait(lat_internal);
               packet_out.Push(p_out1); 
 
-              log_packet("SRAM", "SA", INT_MIN, p_out1);
+              if(LOG) log_packet("SRAM", "SA", INT_MIN, p_out1);
 
               packet_counter++;
               dst_id++;
@@ -324,7 +315,7 @@ SC_MODULE(SRAM) {
 
               wait(lat_internal);
               packet_out.Push(p_out2);
-              log_packet("SRAM", "SA", INT_MIN, p_out2);
+              if(LOG) log_packet("SRAM", "SA", INT_MIN, p_out2);
 
               packet_counter++;
               act_cnt++;
@@ -339,16 +330,8 @@ SC_MODULE(SRAM) {
 
       buffer_inp.unlock();
       wait(ready_send_inp);
-    
-      // end = sc_time_stamp();
-      // io_time += (end - start).to_default_time_units();
-    
-      // start = sc_time_stamp();
-      // end = sc_time_stamp();
-      // idle_time += (end - start).to_default_time_units();
     }
   }
-
 
 
 
@@ -360,14 +343,11 @@ SC_MODULE(SRAM) {
     wait(20.0, SC_NS);
 
     PacketSwitch::Packet p_in;
-    // vector<vector<PacketSwitch::Packet>> result_blk_sr(M_sr, vector<PacketSwitch::Packet>(N_sr)); 
-
     vector<vector<PacketSwitch::Packet>> result_blk_sr(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
 
     bool send_thread_start_res = 0;
-    int p_cnt1 = 0;
-    int p_cnt2 = 0;
-    // int K_cnt = 0;
+    int p_cnt = 0;
+    int K_cnt = 0;
 
     while(1) {
 
@@ -375,35 +355,32 @@ SC_MODULE(SRAM) {
 
         if(p_in.d_type == 3) {
           sram_dram_out.Push(p_in);
-          log_packet("SRAM", "DRAM", INT_MIN, p_in);
+          if(LOG) log_packet("SRAM", "DRAM", INT_MIN, p_in);
         } else if(p_in.d_type == 2) {    
-          received_cnt++;
           result_blk_sr[p_in.Y % N_sr][p_in.X % M_sr] = p_in;
           result_cnt++;
-          p_cnt2++;
+          p_cnt++;
         }
       
         wait();
       } 
 
-
-      if(p_cnt2 == (M_sr * N_sr)) {
-        
-        cout << "get buf lock recv_result " << sc_time_stamp() << "\n";      
-        result_buf = result_blk_sr;
-
+      if(p_cnt == (M_sr * N_sr)) {
+  
+        buffer_res.lock();
+        ready_send_res.unlock();
         wait();
 
-        // if(!send_thread_start_res) {
-        //   send_thread_start_res = 1;
-        //   send_init_res.notify(); // starts the sending thread only after first SRAM blk has been received
-        // }
+        result_buf = result_blk_sr;
 
-        cout << "buf unlock recv_result " << sc_time_stamp() << "\n";      
-        buffer_res = 1;
-        cout << "notify " << sc_time_stamp() << "\n";      
-        p_cnt2 = 0;
-        // K_cnt++;      
+        if(!send_thread_start_res) {
+          send_thread_start_res = 1;
+          send_init_res.notify(); // starts the sending thread only after first SRAM blk has been received
+        }
+
+        ready_send_res.lock();
+        buffer_res.unlock();
+        p_cnt = 0;        
       }
 
       wait();
@@ -417,46 +394,26 @@ SC_MODULE(SRAM) {
 
     sram_partial_out.Reset();
     wait(20.0, SC_NS);
-    // wait(send_init_res);
-    bool first_blk = 1;
-
-
-    vector<vector<PacketSwitch::Packet>> zero_blk(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
-
-    for(int n = 0; n < N_sr; n++) {
-      for(int m = 0; m < M_sr; m++) {
-        for (int i = 0; i < tile_sz; i++) {
-          for (int j = 0; j < tile_sz; j++) {
-            zero_blk[n][m].data[i][j] = 0;
-          }
-        }
-      }
-    }
-
+    wait(send_init_res);
 
     while(1) {
 
-      if(buffer_res) {
-        cout << "get buf lock send_result " << sc_time_stamp() << "\n";      
-        for(int n = 0; n < N_sr; n++) {
-          for(int m = 0; m < M_sr; m++) {
-            result_buf[n][m].src = INT_MIN;
-            result_buf[n][m].dst = result_buf[n][m].AB[0];
-            wait(lat_internal);
-            sram_partial_out.Push(result_buf[n][m]);
-            log_packet("SRAM", "AB", INT_MIN, result_buf[n][m]);
-          }
-        }
+      ready_send_res.unlock();
+      buffer_res.lock();
 
-        cout << "buf unlock send_result " << sc_time_stamp() << "\n";      
-        cout << "try ready_send_res lock send_result " << sc_time_stamp() << "\n";      
-        buffer_res = 0;
-        wait();
-        cout << "wait notify " << sc_time_stamp() << "\n";      
-        cout << "HELLO\n";
-      } else {
-        wait();
+      for(int n = 0; n < N_sr; n++) {
+        for(int m = 0; m < M_sr; m++) {
+          result_buf[n][m].src = INT_MIN;
+          result_buf[n][m].dst = result_buf[n][m].AB[0];
+          wait(lat_internal);
+          sram_partial_out.Push(result_buf[n][m]);
+          if(LOG) log_packet("SRAM", "AB", INT_MIN, result_buf[n][m]);
+        }
       }
+
+      buffer_res.unlock();
+      ready_send_res.lock();
+      wait();
     }
   }
 
