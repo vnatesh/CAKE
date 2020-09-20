@@ -2,7 +2,8 @@
 #define __DRAM_H__
 
 #include "PacketSwitch.h"
-
+#include "log.h"
+#include "matops.h"
 
 
 SC_MODULE(DRAM) {
@@ -147,6 +148,7 @@ SC_MODULE(DRAM) {
 
       if(packet_in.PopNB(p_in)) {
 
+        if(LOG) log_packet("DRAM", "DRAM", 0, p_in);
         packet_counter_recv++;
         m = p_in.X;
         n = p_in.Y;
@@ -162,8 +164,8 @@ SC_MODULE(DRAM) {
         if(p_cnt == (M * N)) {
           end = sc_time_stamp();
           io_time_recv += (end - start).to_default_time_units();
-          // cout << "\n\nMAESTRO MMM RESULT\n\n";
-          // PrintMat(result); 
+          cout << "\n\nMAESTRO MMM RESULT\n\n";
+          PrintMat(result); 
           sc_stop(); // STOP the stimulation here
         }
       }
