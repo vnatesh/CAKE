@@ -108,7 +108,6 @@ SC_MODULE(AB)
       }
       
 
-
       // if(the two partials from leaves haven't been accumed yet, then dont read from partial_in yet) {}
       if(accum_cnt1 == K_ob && !first_blk) {
 
@@ -146,8 +145,8 @@ SC_MODULE(AB)
         }         
 
         if(ready) { // accumulate full MM block in the K dim 
+
           accum_cnt2++;
-          // cout << "ready now\n";
           for(int s = 0; s < NUM_LEVELS+1; s++) {
             chain_buf[s] = p_in1.AB[s];
           }
@@ -174,7 +173,7 @@ SC_MODULE(AB)
           packet_out.Push(p_out);
           // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
           
-          log_packet("AB", "SRAM", id, p_out);
+          if(LOG) log_packet("AB", "SRAM", id, p_out);
 
 
           // if(accum_cnt2 == K_ob * N_sr * (K/K_sr)) {
@@ -320,7 +319,7 @@ SC_MODULE(AB)
   //             p_out.AB[s] = chain_buf[s];
   //           }
   //           // cout << "\n";                      
-
+  //           // find the next smallest addr after current addr in the AB chain, set dst to this
   //           for(int s = 0; s < NUM_LEVELS+1; s++) {
   //             if(chain_buf[s] < id) {
   //               p_out.dst = chain_buf[s];
