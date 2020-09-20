@@ -16,11 +16,14 @@ SC_MODULE(Maestro) {
   SB* sb[Sx*Sy];
   SA* sa[Sx*Sy];
   
+  Connections::In<PacketSwitch::Packet> maestro_partial_in;
   Connections::In<PacketSwitch::Packet> maestro_sram_in;
   Connections::Out<PacketSwitch::Packet> maestro_sram_out;
 
   Connections::In<PacketSwitch::Packet> packet_in;
   Connections::Out<PacketSwitch::Packet> packet_out;
+
+  Connections::Out<PacketSwitch::Packet> partial_out;
 
   sc_in_clk   clk;
   sc_in<bool> rst;
@@ -48,7 +51,30 @@ SC_MODULE(Maestro) {
     sensitive << clk.pos();
     NVHLS_NEG_RESET_SIGNAL_IS(rst);
 
+    SC_THREAD(send_partial);
+    sensitive << clk.pos();
+    NVHLS_NEG_RESET_SIGNAL_IS(rst);
+
   }
+
+
+  // recv partial from SRAM, send to maestro
+  void send_partial() {
+    maestro_partial_in.Reset();
+    partial_out.Reset();
+    wait(20.0, SC_NS);
+
+    PacketSwitch::Packet p_in;
+
+    while(1) {
+      if(maestro_partial_in.PopNB(p_in)) {
+        partial_out.Push(p_in);
+      }
+
+      wait();            
+    }
+  }
+
 
   // recv from SRAM, send to maestro
   void send_packet() {
@@ -57,11 +83,11 @@ SC_MODULE(Maestro) {
     packet_out.Reset();
     wait(20.0, SC_NS);
 
-    PacketSwitch::Packet p_in1;
+    PacketSwitch::Packet p_in;
 
     while(1) {
-      if(maestro_sram_in.PopNB(p_in1)) {
-        packet_out.Push(p_in1);
+      if(maestro_sram_in.PopNB(p_in)) {
+        packet_out.Push(p_in);
       }
 
       wait();            
