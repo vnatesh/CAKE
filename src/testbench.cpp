@@ -257,7 +257,7 @@ int sc_main(int argc, char *argv[]) {
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
   my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M*tile_sz, 
-                                                                vector<PacketSwitch::AccumType>(N*tile_sz, 0));
+                                                                vector<PacketSwitch::AccumType>(N*tile_sz, -1));
   my_testbench.dram.result = result;
   vector<vector<PacketSwitch::AccumType>> ref_out(M*tile_sz, vector<PacketSwitch::AccumType>(N*tile_sz));
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
@@ -310,9 +310,15 @@ int sc_main(int argc, char *argv[]) {
   myfile.open ("results.txt", ios::app);
   if(CORRECT) {
     if(M_sr >= K_sr) {
-      myfile << NUM_SA << "," << num_packets << "," << 
-      total_time << "," << SRAM_bw << "," << comp_time << "," 
-      << SRAM_growth << "," << R << ",M"<< "\n";
+      if(lat_internal == 16) {
+        myfile << NUM_SA << "," << num_packets << "," << 
+        total_time << "," << SRAM_bw << "," << comp_time << "," 
+         << R << ",C"<< "\n";
+      } else {
+        myfile << NUM_SA << "," << num_packets << "," << 
+        total_time << "," << SRAM_bw << "," << comp_time << "," 
+        << "," << R << ",I"<< "\n";
+      }
     } // else if(M_sr < K_sr) {
     //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",K"<< "\n";
     // } else if(M_sr == K_sr) {
@@ -340,7 +346,7 @@ int sc_main(int argc, char *argv[]) {
   cout << "Packets received = " << my_testbench.dram.packet_counter_recv << "\n";
   cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
 
-  cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
+  // cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
 
   // cout << "\nSRAM PERF\n";
   // cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
