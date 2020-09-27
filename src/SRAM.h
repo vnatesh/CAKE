@@ -49,9 +49,9 @@ vector<vector<vector<vector<vector<int> > > > > AB_chains() {
 
   vector<vector<vector<vector<vector<int> > > > > ab_chains(M_sr/M_ob, 
     vector<vector<vector<vector<int> > > >(K_sr/K_ob, 
-      vector<vector<vector<int> > >(K_ob, 
-        vector<vector<int> >(M_ob, 
-          vector <int>(NUM_LEVELS+1, 0)))));  
+      vector<vector<vector<int> > >(M_ob, 
+        vector<vector<int> >(K_ob, 
+          vector <int>(NUM_LEVELS+1, INT_MIN)))));  
 
   int next_leaf;
   int curr_leaf;
@@ -353,7 +353,7 @@ SC_MODULE(SRAM) {
 
       if(packet_in.PopNB(p_in)) {
 
-        if(p_in.d_type == 3) {
+        if(p_in.d_type == 3) { // final result packets
           sram_dram_out.Push(p_in);
           if(LOG) log_packet("SRAM", "DRAM", INT_MIN, p_in);
         } else if(p_in.d_type == 2) {    
@@ -403,8 +403,9 @@ SC_MODULE(SRAM) {
 
       for(int n = 0; n < N_sr; n++) {
         for(int m = 0; m < M_sr; m++) {
+          result_buf[n][m].dst = result_buf[n][m].src;
           result_buf[n][m].src = INT_MIN;
-          result_buf[n][m].dst = result_buf[n][m].AB[0];
+          // result_buf[n][m].dst = result_buf[n][m].AB[0];
           wait(lat_internal);
           sram_partial_out.Push(result_buf[n][m]);
           if(LOG) log_packet("SRAM", "AB", INT_MIN, result_buf[n][m]);
