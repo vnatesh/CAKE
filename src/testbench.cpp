@@ -230,10 +230,10 @@ int sc_main(int argc, char *argv[]) {
     my_testbench.maestro.ab[i]->id = i;
     my_testbench.maestro.ab[i]->level = lev;
     // ABs in each level have acc_buf with M_ob*N_sr tiles
-    vector<vector<PacketSwitch::Packet>> acc_buf(M_ob, vector<PacketSwitch::Packet>(N_sr)); 
-    my_testbench.maestro.ab[i]->acc_buf = acc_buf;
-    vector<PacketSwitch::AddrType> chain_buf(NUM_LEVELS+1, 0);
-    my_testbench.maestro.ab[i]->chain_buf = chain_buf;
+    // vector<vector<PacketSwitch::Packet>> acc_buf(M_ob, vector<PacketSwitch::Packet>(N_sr));
+    // my_testbench.maestro.ab[i]->acc_buf = acc_buf;
+    // vector<PacketSwitch::AddrType> chain_buf(NUM_LEVELS+1, 0);
+    // my_testbench.maestro.ab[i]->chain_buf = chain_buf;
   }
 
   for (int i = 0; i < NUM_SA; i++) {
@@ -313,11 +313,11 @@ int sc_main(int argc, char *argv[]) {
       if(lat_internal == 16) {
         myfile << NUM_SA << "," << num_packets << "," << 
         total_time << "," << SRAM_bw << "," << comp_time << "," 
-         << R << ",C"<< "\n";
+         << R << ",C"<< "," << K << "," << lat_internal_factor << "\n";
       } else {
         myfile << NUM_SA << "," << num_packets << "," << 
         total_time << "," << SRAM_bw << "," << comp_time << "," 
-        << "," << R << ",I"<< "\n";
+         << R << ",I"<< "," << K << "," << lat_internal_factor << "\n";
       }
     } // else if(M_sr < K_sr) {
     //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",K"<< "\n";
