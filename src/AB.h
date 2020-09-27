@@ -16,8 +16,7 @@ SC_MODULE(AB)
   Connections::In<PacketSwitch::Packet>  packet_in;
   Connections::Out<PacketSwitch::Packet>  packet_out;
 
-  vector<vector<PacketSwitch::Packet>> acc_buf; 
-  vector<PacketSwitch::AddrType>     chain_buf; 
+  PacketSwitch::Packet acc_buf;
 
   PacketSwitch::ID_type id;
   PacketSwitch::ID_type level; // id for level of this AB in the h-tree
@@ -63,10 +62,7 @@ SC_MODULE(AB)
     bool partial_reg_in = 0;
     int K_cnt = 0;
 
-    PacketSwitch::Packet acc_buf;
-    vector<PacketSwitch::AddrType> chain_buf(NUM_LEVELS+1, 0);
     PacketSwitch::Packet zero_acc_buf; 
-    vector<PacketSwitch::AddrType> zero_chain_buf(NUM_LEVELS+1, 0);
 
     for (int i = 0; i < tile_sz; i++) {
       for (int j = 0; j < tile_sz; j++) {
@@ -82,64 +78,66 @@ SC_MODULE(AB)
 
     while(1) {
 
-      if(accum_cnt1 != K_ob) {
-        if(packet_in.PopNB(p_in1)) {
 
-          if(DEBUG) cout << "AB " << id << " received partial\n";
+      if(level == NUM_LEVELS - pod_ab_hops) { // second to last level holds accumulates partials the longest when K_ob = 2
 
-          for (int i = 0; i < tile_sz; i++) {
-            for (int j = 0; j < tile_sz; j++) {
-              acc_buf.data[i][j] += p_in1.data[i][j];
-            }
-          }
+        if(accum_cnt1 != 2) {
+          if(packet_in.PopNB(p_in1)) {
 
-          acc_buf.X = p_in1.X;
-          acc_buf.Y = p_in1.Y;
-          acc_buf.Z = p_in1.Z;
-          acc_buf.x = p_in1.x;
-          acc_buf.y = p_in1.y;
-          acc_buf.z = p_in1.z;
-          acc_buf.SRAM = p_in1.SRAM;
-          accum_cnt1++;
-          n_ind = p_in1.Y % N_sr; 
-          // cout << "n_ind = " << n_ind << " accum_cnt1 = " << accum_cnt1 << " accum_cnt2 = " << accum_cnt2 << "\n";
-          wait();
-        }
-      }
-      
-
-      // if(the two partials from leaves haven't been accumed yet, then dont read from partial_in yet) {}
-      if(accum_cnt1 == K_ob && !first_blk) {
-
-        if(partial_in.PopNB(p_in2)) {
-
-          if(p_in2.Y % N_sr == n_ind) {
-
-            if(DEBUG) cout << "AB " << id << " received partial from SRAM\n";
+            if(DEBUG) cout << "AB " << id << " received partial\n";
 
             for (int i = 0; i < tile_sz; i++) {
               for (int j = 0; j < tile_sz; j++) {
-                acc_buf.data[i][j] += p_in2.data[i][j];
+                acc_buf.data[i][j] += p_in1.data[i][j];
               }
             }
 
-            partial_reg_in = 1;
+            acc_buf.X = p_in1.X;
+            acc_buf.Y = p_in1.Y;
+            acc_buf.Z = p_in1.Z;
+            acc_buf.x = p_in1.x;
+            acc_buf.y = p_in1.y;
+            acc_buf.z = p_in1.z;
+            acc_buf.SRAM = p_in1.SRAM;
+            accum_cnt1++;
+            n_ind = p_in1.Y % N_sr; 
+            // cout << "n_ind = " << n_ind << " accum_cnt1 = " << accum_cnt1 << " accum_cnt2 = " << accum_cnt2 << "\n";
+            wait();
           }
-
-          wait();
         }
-      }
+        
 
-      
-      if(level == NUM_LEVELS - 1) { // second to last level holds accumulates partials the longest when K_ob = 2
+        // if(the two partials from leaves haven't been accumed yet, then dont read from partial_in yet) {}
+        if(accum_cnt1 == 2 && !first_blk) {
+
+          if(partial_in.PopNB(p_in2)) {
+
+            if(p_in2.Y % N_sr == n_ind) {
+
+              if(DEBUG) cout << "AB " << id << " received partial from SRAM\n";
+
+              for (int i = 0; i < tile_sz; i++) {
+                for (int j = 0; j < tile_sz; j++) {
+                  acc_buf.data[i][j] += p_in2.data[i][j];
+                }
+              }
+
+              partial_reg_in = 1;
+            }
+
+            wait();
+          }
+        }
+
+      // if(p_in1.AB[pod_ab_hops-1] == id) { 
       
         if(first_blk) {
-          if(accum_cnt1 == K_ob) { 
+          if(accum_cnt1 == 2) { 
             ready = 1;
             // first_blk = 0;
           }
         } else {
-          if(accum_cnt1 == K_ob && partial_reg_in == 1) {
+          if(accum_cnt1 == 2 && partial_reg_in == 1) {
             ready = 1;
           } 
         }         
@@ -147,34 +145,36 @@ SC_MODULE(AB)
         if(ready) { // accumulate full MM block in the K dim 
 
           accum_cnt2++;
-          for(int s = 0; s < NUM_LEVELS+1; s++) {
-            chain_buf[s] = p_in1.AB[s];
-          }
-
           p_out = acc_buf; // this sets X,Y,Z,x,y,z headers for final result output                    
           p_out.src = id;
 
           for(int s = 0; s < NUM_LEVELS+1; s++) {
-            p_out.AB[s] = chain_buf[s];
+            p_out.AB[s] = p_in1.AB[s];
           }
-
-          p_out.dst = chain_buf[1]; // send to next AB (or SRAM) in chain
-
 
           p_out.cycle_cnt = p_in2.cycle_cnt + 1; // partial result type
           if(p_out.cycle_cnt == K/K_sr) {
             p_out.d_type = 3; //  result type
             p_out.cycle_cnt = 0;
             p_in2.cycle_cnt = 0;
+
+            for(int s = 0; s < NUM_LEVELS+1; s++) {
+              if(p_out.AB[s] < id) {
+                p_out.dst = p_out.AB[s];
+                break;
+              }
+            }
+
+            packet_out.Push(p_out);
           } else {
             p_out.d_type = 2; // partial result type
+            p_out.dst = INT_MIN; // partial cycle to SRAM
+            packet_out.Push(p_out);
           }
 
-          packet_out.Push(p_out);
           // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
           
           if(LOG) log_packet("AB", "SRAM", id, p_out);
-
 
           // if(accum_cnt2 == K_ob * N_sr * (K/K_sr)) {
           if(accum_cnt2 == N_sr ) {
@@ -193,12 +193,63 @@ SC_MODULE(AB)
           partial_reg_in = 0;
           accum_cnt1 = 0;
           ready = 0;
-          chain_buf = zero_chain_buf;
           acc_buf = zero_acc_buf;
           wait();
         }
       }
 
+
+      else {
+
+        if(accum_cnt1 != 2) {
+          if(packet_in.PopNB(p_in1)) {
+
+            if(DEBUG) cout << "AB " << id << " received partial\n";
+
+            for (int i = 0; i < tile_sz; i++) {
+              for (int j = 0; j < tile_sz; j++) {
+                acc_buf.data[i][j] += p_in1.data[i][j];
+              }
+            }
+
+            acc_buf.X = p_in1.X;
+            acc_buf.Y = p_in1.Y;
+            acc_buf.Z = p_in1.Z;
+            acc_buf.x = p_in1.x;
+            acc_buf.y = p_in1.y;
+            acc_buf.z = p_in1.z;
+            acc_buf.SRAM = p_in1.SRAM;
+            accum_cnt1++;
+            n_ind = p_in1.Y % N_sr; 
+            // cout << "n_ind = " << n_ind << " accum_cnt1 = " << accum_cnt1 << " accum_cnt2 = " << accum_cnt2 << "\n";
+            wait();
+          }
+        }
+
+        if(accum_cnt1 == 2) { // accumulate full MM block in the K dim 
+
+          p_out = acc_buf; // this sets X,Y,Z,x,y,z headers for final result output                    
+          p_out.src = id;
+
+          for(int s = 0; s < NUM_LEVELS+1; s++) {
+            p_out.AB[s] = p_in1.AB[s];
+          }
+
+          for(int s = 0; s < NUM_LEVELS+1; s++) {
+            if(p_out.AB[s] < id) {
+              p_out.dst = p_out.AB[s];
+              break;
+            }
+          }
+
+          packet_out.Push(p_out);
+            
+          if(LOG) log_packet("AB", "SRAM", id, p_out);
+          accum_cnt1 = 0;
+          acc_buf = zero_acc_buf;
+          wait();
+        }
+      }
         
 
         // else { // at levels other than 2nd to last, accumulate each partial only twice
