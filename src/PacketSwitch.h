@@ -14,7 +14,7 @@ SC_MODULE(PacketSwitch)
     typedef NVINT8   WeightType;    
     typedef NVINT32  AccumType;
     typedef NVINT32  AddrType;
-    typedef NVINT8   ID_type;
+    typedef NVINT32   ID_type;
     typedef NVUINT1  Bcast;
 
     typedef typename nvhls::nv_scvector<nvhls::nv_scvector <AccumType, tile_sz>, tile_sz> VectorType;
@@ -140,7 +140,6 @@ SC_MODULE(PacketSwitch)
                 }
               }
             }
-            // wait(lat_internal);
           }
         }
 
@@ -200,29 +199,45 @@ SC_MODULE(PacketSwitch)
       Packet p_in_right;
       Packet p_in_ab;
 
+
+      int turn = 3;
+
       // read first from right before left since left SA processes packets before right SA
       while(1) {
 
-        if(right_in.PopNB(p_in_right)) {
-          if(p_in_right.dst == id) {
-            ab_out.Push(p_in_right);
-          } else {
-            parent_out.Push(p_in_right);
+        if(turn % 3 == 0) {
+
+          if(right_in.PopNB(p_in_right)) {
+            if(p_in_right.dst == id) {
+              ab_out.Push(p_in_right);
+            } else {
+              parent_out.Push(p_in_right);
+            }
           }
+
+          turn = 1;
+
+        } else if (turn % 3 == 1) {
+
+          if(left_in.PopNB(p_in_left)) {
+            if(p_in_left.dst == id) {
+              ab_out.Push(p_in_left);
+            } else {
+              parent_out.Push(p_in_left);
+            }
+          }
+
+          turn = 2;
+
+        } else if(turn % 3 == 2) {
+
+          if(ab_in.PopNB(p_in_ab)) {
+            parent_out.Push(p_in_ab); 
+          }
+
+          turn = 3;
         }
 
-        if(left_in.PopNB(p_in_left)) {
-          if(p_in_left.dst == id) {
-            ab_out.Push(p_in_left);
-          } else {
-            parent_out.Push(p_in_left);
-          }
-        }
-
-        if(ab_in.PopNB(p_in_ab)) {
-          parent_out.Push(p_in_ab); 
-        }
-      
         wait();
       }
     }
