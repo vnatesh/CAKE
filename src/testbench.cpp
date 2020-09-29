@@ -34,6 +34,46 @@ using namespace::std;
 
 #include "matops.h"
 
+
+
+void write_perf_results(int total_time) {
+
+  ofstream myfile;
+  myfile.open(PERF_FILE, ios::app);
+
+  if(PERF_FILE == "exp1fig1") {
+    myfile << NUM_SA << "," << total_time << "," << bw_growth << "\n";
+    myfile.close();
+  } 
+
+  // else if(PERF_FILE == "exp1fig2") {
+
+  // }
+
+  else if(PERF_FILE == "exp1fig3") {
+    myfile << NUM_SA << "," << total_time << "," << lat_internal_factor << "\n";
+    myfile.close();
+  }
+
+  else if(PERF_FILE == "exp1fig4") {
+    myfile << NUM_SA << "," << total_time << "," << lat_dram << "\n";
+    myfile.close();
+  }
+
+  else if(PERF_FILE == "exp1fig5") {
+    myfile << NUM_SA << "," << total_time << "," << sx << "\n";
+    myfile.close();
+  }
+
+
+  // else if(PERF_FILE == "exp1fig2") {
+
+  // }
+}
+
+
+
+
 SC_MODULE (testbench) {
 
   DRAM dram;
@@ -306,38 +346,13 @@ int sc_main(int argc, char *argv[]) {
     }
   }
 
-  ofstream myfile;
-  myfile.open ("results.txt", ios::app);
-  if(CORRECT) {
-    if(M_sr >= K_sr) {
-      if(lat_internal == 16) {
-        myfile << NUM_SA << "," << num_packets << "," << 
-        total_time << "," << SRAM_bw << "," << comp_time << "," 
-         << R << ",C"<< "," << K << "," << lat_internal_factor << "\n";
-      } else {
-        myfile << NUM_SA << "," << num_packets << "," << 
-        total_time << "," << SRAM_bw << "," << comp_time << "," 
-         << R << ",I"<< "," << K << "," << lat_internal_factor << "\n";
-      }
-    } // else if(M_sr < K_sr) {
-    //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",K"<< "\n";
-    // } else if(M_sr == K_sr) {
-    //   myfile << NUM_SA << "," << num_packets << "," << total_time << "," << SRAM_bw << "," << comp_time << ",S"<< "\n";
-    // }
-  } 
-  myfile.close();
 
-
-  // ofstream myfile;
-  // myfile.open ("results.txt", ios::app);
   if(CORRECT) {
-    // myfile << "1 ";
+    write_perf_results(total_time);
     cout << "\nMMM Result Correct!\n\n";
   } else {
-    // myfile << "0 ";
     cout << "\nMMM Result Incorrect! :( \n\n";
   }
-  // myfile.close();
 
 
   cout << "\nDRAM PERF\n";
