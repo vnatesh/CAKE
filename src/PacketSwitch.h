@@ -32,8 +32,6 @@ SC_MODULE(PacketSwitch)
         AddrType x;
         AddrType y;
         AddrType z;
-        AddrType SB;
-        AddrType SA;
         AB_ChainType AB;
         AddrType SRAM;
         AddrType src;
@@ -42,7 +40,7 @@ SC_MODULE(PacketSwitch)
         ID_type d_type; // weight (0), activation (1), result (2)
         BcastVectorType bcast;
 
-        static const unsigned int width = ID_type::width + 12 * AddrType::width 
+        static const unsigned int width = ID_type::width + 10 * AddrType::width 
                                         + VectorType::width + BcastVectorType::width
                                         + AB_ChainType::width; // sizeof(int) * N;
 
@@ -55,8 +53,6 @@ SC_MODULE(PacketSwitch)
           m& x;
           m& y;
           m& z;
-          m& SB;
-          m& SA;
           m& AB;
           m& SRAM;
           m& src;

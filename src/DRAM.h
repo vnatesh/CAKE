@@ -122,6 +122,8 @@ SC_MODULE(DRAM) {
               packet_counter_send++;
             }
           }
+
+          
         }
       }
     }

@@ -262,8 +262,8 @@ SC_MODULE(SRAM) {
               p_out1.x = (m1 * M_ob) + m; 
               p_out1.y = -1;
               p_out1.z = (k1 * K_ob) + k;
-              p_out1.SB = k; 
-              p_out1.SA = k + POD_SZ; 
+              // p_out1.SB = k; 
+              // p_out1.SA = k + POD_SZ; 
               p_out1.SRAM = INT_MIN; // sram src
               p_out1.src = INT_MIN; // sram src
               p_out1.dst = dst_id; // k-first placement of OBs and tiles within OBs
@@ -302,8 +302,8 @@ SC_MODULE(SRAM) {
               p_out2.x = -1; // dummy value for x 
               p_out2.y = (n1 * N_ob) + n;
               p_out2.z = (k1 * K_ob) + k;
-              p_out2.SB = k; 
-              p_out2.SA = k + POD_SZ; 
+              // p_out2.SB = k; 
+              // p_out2.SA = k + POD_SZ; 
               p_out2.SRAM = INT_MIN; // sram src
               p_out2.src = INT_MIN; // sram src
               p_out2.d_type = 1;

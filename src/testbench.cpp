@@ -43,32 +43,40 @@ void write_perf_results(int total_time) {
 
   if(PERF_FILE == "exp1fig1") {
     myfile << NUM_SA << "," << total_time << "," << bw_growth << "\n";
-    myfile.close();
   } 
 
-  // else if(PERF_FILE == "exp1fig2") {
-
-  // }
+  else if(PERF_FILE == "exp1fig2") {
+    myfile << NUM_SA << "," << total_time << "," << K << "\n";
+  }
 
   else if(PERF_FILE == "exp1fig3") {
     myfile << NUM_SA << "," << total_time << "," << lat_internal_factor << "\n";
-    myfile.close();
   }
 
   else if(PERF_FILE == "exp1fig4") {
     myfile << NUM_SA << "," << total_time << "," << lat_dram << "\n";
-    myfile.close();
   }
 
   else if(PERF_FILE == "exp1fig5") {
     myfile << NUM_SA << "," << total_time << "," << sx << "\n";
-    myfile.close();
   }
 
+  else if(PERF_FILE == "exp1fig6") {
+    myfile << NUM_SA << "," << total_time << "," << N_sr << "\n";
+  }
+
+  else if(PERF_FILE == "exp1fig7") {
+    // myfile << NUM_SA << "," << total_time << "," << lat_link[NUM_LEVELS-1] << "\n";
+  }
+
+  else if(PERF_FILE == "exp1fig8") {
+    myfile << NUM_SA << "," << total_time << "," << sx << "\n";
+  }
 
   // else if(PERF_FILE == "exp1fig2") {
 
   // }
+  myfile.close();
 }
 
 
