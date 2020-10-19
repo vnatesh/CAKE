@@ -24,8 +24,8 @@ def plot_exp1fig1(fname = 'exp1fig1'):
 			list(single_pod_lat / linear_inc['number of cycles']), 
 			label = "linearly increasing", marker = 'v', color = 'b')
 	plt.title("Impact of Internal BW on Speedup")
-	plt.xlabel("number of SAs", fontsize = 18)
-	plt.ylabel("speedup", fontsize = 18)
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.legend(title="internal bandwidth", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -54,9 +54,9 @@ def plot_exp1fig3(fname = 'exp1fig3'):
 		i += 1
 	#
 	plt.title("Impact of Additional Internal BW")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
-	plt.legend(title="internal bw\nincrease factor", loc = "middle right")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
+	plt.legend(title="internal bw\nincrease factor", loc = "middle right", prop={'size': 13})
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
 	plt.clf()
@@ -85,8 +85,8 @@ def plot_exp1fig4(fname = 'exp1fig4'):
 		i += 1
 	#
 	plt.title("Impact of External BW on Speedup")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.legend(title="external bw", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -114,8 +114,8 @@ def plot_exp1fig5(fname = 'exp1fig5'):
 		i += 1
 	#
 	plt.title("Impact of Local Accumulation")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.legend(title="Pod size (s)", loc = "middle right")
 	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -145,8 +145,8 @@ def plot_exp1fig6(fname = 'exp1fig6'):
 		i += 1
 	#
 	plt.title("Impact of Local Memory Size on Speedup")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.legend(title="N-dim factor", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -175,7 +175,7 @@ def plot_exp1fig8(fname = 'exp1fig8'):
 	# 		list((single_pod_lat*100) / (acc_s4['number of cycles']*NUM_SA)), 
 	# 		label = "increasing", marker = 'o')
 	# plt.title("Impact of Local Accumulation on Strong Scaling Efficiency")
-	# plt.xlabel("number of SAs")
+	# plt.xlabel("Number of SAs", fontsize = 20)
 	# plt.ylabel("Strong Scaling Efficiency (%)")
 	# plt.legend(title="pod size", loc = "middle right")
 	plt.plot(list(acc_s2['number of SAs']), 
@@ -185,8 +185,8 @@ def plot_exp1fig8(fname = 'exp1fig8'):
 			list(single_pod_lat / acc_s4['number of cycles']), 
 			label = "increasing", marker = 'o')
 	plt.title("Impact of Local Accumulation on Speedup")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.legend(title="pod size", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -214,9 +214,9 @@ def plot_exp1_local_acc(fname = 'local_acc'):
 		i += 1
 	#
 	plt.title('Impact of Local Accumulation')
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
-	plt.legend(loc = "upper left")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
+	plt.legend(loc = "upper left", prop={'size': 13})
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
 	plt.clf()
@@ -258,15 +258,15 @@ def roofline():
 	plt.title('Roofline Model for Various Pod Sizes')
 	plt.xscale('log', basex=2)
 	plt.yscale('log', basey=2)
-	plt.xlabel('operational intensity (tile mults / tile)')
-	plt.ylabel('performance (tile mults / cycle)')
+	plt.xlabel('Operational Intensity (tile mults / tile)', fontsize = 20)
+	plt.ylabel('Performance (tile mults / cycle)', fontsize = 20)
 	# plt.grid()
 	plt.axvline(16, label = 'memory/compute\nboundary', linestyle='dashed')
 	# plt.text(16,0,'memory vs compute boundary',rotation=90)
 	plt.annotate("s = 2", (3.5 ,0.8))
 	plt.annotate("s = 4", (2 ,1.5))
 	plt.annotate("s = 8", (1.5 ,2.3))
-	plt.legend(loc = "upper left")
+	plt.legend(loc = "upper left", prop={'size': 15})
 	plt.savefig("roofline.pdf", bbox_inches='tight')
 	plt.show()
 	plt.clf()
@@ -291,8 +291,8 @@ def plot_exp1ABskip(fname = 'exp1ABskip'):
 		i+=1
 	#
 	plt.title("Impact of AB Skipping on Speedup")
-	plt.xlabel("over-provisioning factor")
-	plt.ylabel("speedup")
+	plt.xlabel("Over-Provisioning Factor", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
 	plt.xticks(np.arange(0,4,1))
 	# plt.yticks(np.arange(0,0.15,0.01))
 	plt.legend(loc = "upper left")
