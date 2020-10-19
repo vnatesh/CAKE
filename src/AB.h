@@ -78,7 +78,6 @@ SC_MODULE(AB)
 
     while(1) {
 
-
       if(level == NUM_LEVELS - pod_ab_hops) { // second to last level holds accumulates partials the longest when K_ob = 2
 
         if(accum_cnt1 != 2) {
@@ -165,13 +164,12 @@ SC_MODULE(AB)
               }
             }
 
-            packet_out.Push(p_out);
           } else {
             p_out.d_type = 2; // partial result type
             p_out.dst = INT_MIN; // partial cycle to SRAM
-            packet_out.Push(p_out);
           }
 
+          packet_out.Push(p_out);
           // cout <<  "AB " << id << " sending tile to " << p_out.dst << "\n";
           
           if(LOG) log_packet("AB", "SRAM", id, p_out);

@@ -49,8 +49,8 @@ const static int lat_dram = 4; // DRAM latency
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 2;
-const static int sy = 2;
+const static int sx = 4;
+const static int sy = 4;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -204,8 +204,8 @@ const static int lat_dram = 4; // DRAM latency
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 2;
-const static int sy = 2;
+const static int sx = 4;
+const static int sy = 4;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -294,8 +294,8 @@ const static int alpha = (int) (1 / (R-1));
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 2;
-const static int sy = 2;
+const static int sx = 4;
+const static int sy = 4;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -475,9 +475,12 @@ const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N d
   # lat_internals2 = [32,16,8,4,2]      # 2:(5/3)   
   # lat_internals4 = [16,14,12]      # 2:(4/3.5) 
   lat_internal = [lat_internals1] + [lat_internals2] + [lat_internals1]
-  s1 = [2,2,2,2]
-  s2 = [2,2,4,4]
-  s2 = [2,2,4,4]
+  # s1 = [2,2,2,2]
+  # s2 = [2,2,4,4]
+  # s2 = [2,2,4,4]
+  s1 = [4,4,4,4]
+  s2 = [4,4,8,8]
+  s2 = [4,4,8,8]
   s = [s1] + [s2] + [s2]
   #
   f = open(fname, 'w')
@@ -755,22 +758,6 @@ if __name__ == '__main__':
   # exp1fig8()
 
 
-
-
-
-number of SAs,number of cycles,bw growth
-16,574294,FH
-32,299410,FH
-64,165702,FH
-128,     ,FH
-16,574294,MH
-32,299410,MH
-64,84466,MH
-128,52866,MH
-16,841586,ML
-32,431746,ML
-64,117698,ML
-128,67438,ML
 
 
 
