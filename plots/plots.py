@@ -24,8 +24,8 @@ def plot_exp1fig1(fname = 'exp1fig1'):
 			list(single_pod_lat / linear_inc['number of cycles']), 
 			label = "linearly increasing", marker = 'v', color = 'b')
 	plt.title("Impact of Internal BW on Speedup")
-	plt.xlabel("number of SAs")
-	plt.ylabel("speedup")
+	plt.xlabel("number of SAs", fontsize = 18)
+	plt.ylabel("speedup", fontsize = 18)
 	plt.legend(title="internal bandwidth", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
