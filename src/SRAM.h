@@ -198,6 +198,9 @@ SC_MODULE(SRAM) {
             n_cnt++;
           }
         }
+
+        // if(lat_internal > lat_dram) wait(lat_internal - lat_dram);
+        wait(lat_internal);
       }
 
       // when a full SRAM block (both weight and act) have been stored in SRAM, trigger sending thread 
@@ -361,8 +364,8 @@ SC_MODULE(SRAM) {
           result_cnt++;
           p_cnt++;
         }
-      
-        wait();
+        
+        wait(lat_internal);
       } 
 
       if(p_cnt == (M_sr * N_sr)) {
