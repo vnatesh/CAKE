@@ -49,8 +49,8 @@ const static int lat_dram = 4; // DRAM latency
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 4;
-const static int sy = 4;
+const static int sx = 2;
+const static int sy = 2;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -204,8 +204,8 @@ const static int lat_dram = 4; // DRAM latency
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 4;
-const static int sy = 4;
+const static int sx = 2;
+const static int sy = 2;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -294,8 +294,8 @@ const static int alpha = (int) (1 / (R-1));
   arch2 = '''
 const static int NUM_SA = Sx * Sy;
 const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-const static int sx = 4;
-const static int sy = 4;
+const static int sx = 2;
+const static int sy = 2;
 const static int POD_SZ = sx * sy;
 const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
 const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
@@ -358,82 +358,6 @@ const static int N = %d;
 
 
 
-
-# # exp to see if we can afford to increase bw less than proportionally if we do more
-# # local accumulation (s = 4 vs s = 2)
-# def exp1fig5(fname = "exp1fig5"):
-#   arch1 = include + '''
-# const std::string PERF_FILE = "%s"; 
-# const static char bw_growth = 'N'; // constant vs increasing     
-# const static double lat_internal_factor = 0; 
-# const static int tile_sz = 2; // change to 8 later
-# const static double R = 2; // DRAM banwidth 
-# const static int alpha = (int) (1 / (R-1));
-# const static int lat_dram = 1;
-# ''' % fname
-#   #
-#   arch2 = '''
-# const static int NUM_SA = Sx * Sy;
-# const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-# const static int POD_SZ = sx * sy;
-# const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
-# const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
-
-# const static int M_ob = sy; // Size of block in the M dimension in terms of tiles
-# const static int K_ob = sx; // Size of operation block in the k dimension in terms of tiles
-# const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N dimension in terms of tiles
-# '''
-#   #
-#   M=32
-#   K=32
-#   N=64
-#   # increase by NUM_PODS in the M and N dims
-#   test_dims = [ [(2, 2), ('NUM_PODS', '1')], 
-#                 [(4, 2), ('NUM_PODS', '1')], 
-#                 [(4, 4), ('NUM_PODS', '1')], 
-#                 [(8, 4), ('NUM_PODS', '1')], 
-#                 [(8, 8), ('NUM_PODS', '1')],
-#                 [(16, 8), ('NUM_PODS', '1')]]
-#   #
-#   lat_internals2 = [16,8,4]       # 2:2 
-#   lat_internals4 = [16,12,9]      # 2:(4/3) (increase bw_int by (4/3)x when increasing C by 2x)
-#   # lat_internals4 = [16,14,12]      # 2:(4/3.5) 
-#   lat_internal = [lat_internals2] + [lat_internals4]
-#   s = [2,4]
-#   #
-#   f = open(fname, 'w')
-#   f.write("number of SAs,number of cycles,s\n")
-#   f.close()
-#   exec_num = 500;
-#   #
-#   for j in xrange(len(s)):
-#     for i in xrange(len(test_dims)):
-#       a1 = '''
-# const static int lat_internal = %d; // internal latency 
-# const static int Sx = %d;
-# const static int Sy = %d;
-# const static int sx = %d;
-# const static int sy = %d;
-# ''' % (lat_internal[j][i], test_dims[i][0][0],test_dims[i][0][1], s[j], s[j])
-#       a3 = '''
-# const static int M_sr = M_ob * %s; 
-# const static int K_sr = K_ob * %s;
-# ''' % (test_dims[i][1][0],test_dims[i][1][1])
-#       a4 = '''
-# const static int N_sr = N_ob;
-# const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
-# const static int M = %d;
-# const static int K = %d;
-# const static int N = %d;
-# #endif
-# ''' % (M, K, N)
-#       arch = arch1 + a1 + arch2 + a3 + a4
-#       run_exp(arch, exec_num)       
-#       exec_num += 1
-#       # print arch
-
-
-
 # exp to see if we can afford to increase bw less than proportionally if we do more
 # local accumulation (s = 8 vs 4, 2)
 def exp1fig5(fname = "exp1fig5"):
@@ -475,12 +399,9 @@ const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N d
   # lat_internals2 = [32,16,8,4,2]      # 2:(5/3)   
   # lat_internals4 = [16,14,12]      # 2:(4/3.5) 
   lat_internal = [lat_internals1] + [lat_internals2] + [lat_internals1]
-  # s1 = [2,2,2,2]
-  # s2 = [2,2,4,4]
-  # s2 = [2,2,4,4]
-  s1 = [4,4,4,4]
-  s2 = [4,4,8,8]
-  s2 = [4,4,8,8]
+  s1 = [2,2,2,2]
+  s2 = [2,2,4,4]
+  s2 = [2,2,4,4]
   s = [s1] + [s2] + [s2]
   #
   f = open(fname, 'w')
@@ -670,83 +591,6 @@ const static int N = %d;
 
 
 
-
-
-
-
-
-
-
-# def exp1fig8(fname = "exp1fig8"):
-#   arch1 = include + '''
-#   const std::string PERF_FILE = "%s"; 
-#   const static char bw_growth = 'N'; // constant vs increasing     
-#   const static double lat_internal_factor = 0; 
-#   const static int tile_sz = 2; // change to 8 later
-#   const static double R = 2; // DRAM banwidth 
-#   const static int alpha = (int) (1 / (R-1));
-#   ''' % fname
-#   #
-#   arch2 = '''
-#   const static int NUM_SA = Sx * Sy;
-#   const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
-#   const static int POD_SZ = sx * sy;
-#   const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
-#   const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
-
-#   const static int M_ob = sy; // Size of block in the M dimension in terms of tiles
-#   const static int K_ob = sx; // Size of operation block in the k dimension in terms of tiles
-#   const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N dimension in terms of tiles
-#   '''
-#   #
-#   M=64
-#   K=32
-#   N=64
-#   test_dims = [ [(4, 4), ('NUM_PODS', '1'),4,4], 
-#                 [(8, 4), ('NUM_PODS', '1'),4,4], 
-#                 [(8, 8), ('NUM_PODS', '1'),8,8],
-#                 [(16, 8), ('NUM_PODS', '1'),8,8]]
-#   #
-#   lat_internal = [32,16,8,4]
-#   #
-#   f = open(fname, 'w')
-#   f.write("number of SAs,number of cycles,sx\n")
-#   f.close()
-#   exec_num = 800;
-#   #
-#   for i in xrange(len(test_dims)):
-#     a1 = '''
-#   const static int lat_dram = 1; // DRAM latency 
-#   const static int lat_internal = %d; // internal latency 
-#   const static int Sx = %d;
-#   const static int Sy = %d;
-#   const static int sx = %d;
-#   const static int sy = %d;
-#   ''' % (lat_internal[i], test_dims[i][0][0], test_dims[i][0][1], test_dims[i][2], test_dims[i][3])
-#     a3 = '''
-#   //const static int lat_link[NUM_LEVELS] = NULL;
-#   const static int M_sr = M_ob * %s; 
-#   const static int K_sr = K_ob * %s;
-#   ''' % (test_dims[i][1][0], test_dims[i][1][1])
-#     a4 = '''
-#   const static int N_sr = N_ob;
-#   const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
-#   const static int M = %d;
-#   const static int K = %d;
-#   const static int N = %d;
-#   #endif
-#   ''' % (M, K, N)
-#     arch = arch1 + a1 + arch2 + a3 + a4
-#     run_exp(arch, exec_num)       
-#     exec_num += 1
-#     # print arch
-
-
-
-
-
-
-
 if __name__ == '__main__':
   exp1fig1()
   # exp1fig2()
@@ -758,6 +602,22 @@ if __name__ == '__main__':
   # exp1fig8()
 
 
+
+
+
+# number of SAs,number of cycles,bw growth
+# 16,574294,FH
+# 32,299410,FH
+# 64,165702,FH
+# 128,     ,FH
+# 16,574294,MH
+# 32,299410,MH
+# 64,84466,MH
+# 128,52866,MH
+# 16,841586,ML
+# 32,431746,ML
+# 64,117698,ML
+# 128,67438,ML
 
 
 

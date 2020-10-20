@@ -58,7 +58,7 @@ void write_perf_results(int total_time) {
   }
 
   else if(PERF_FILE == "exp1fig5") {
-    myfile << NUM_SA << "," << total_time << "," << sx << "\n";
+    myfile << NUM_SA << "," << total_time << "," << sx << "," << lat_internal <<"\n";
   }
 
   else if(PERF_FILE == "exp1fig6") {
@@ -66,7 +66,7 @@ void write_perf_results(int total_time) {
   }
 
   else if(PERF_FILE == "exp1fig7") {
-    // myfile << NUM_SA << "," << total_time << "," << lat_link[NUM_LEVELS-1] << "\n";
+    myfile << NUM_SA << "," << total_time << "," << lat_link[2] << "\n";
   }
 
   else if(PERF_FILE == "exp1fig8") {
@@ -185,7 +185,7 @@ SC_MODULE (testbench) {
     }
 
 
-    // connect an AB to eat switch 
+    // connect an AB to each switch 
     for(int i = 0; i < Sx*Sy - 1; i++) {
 
       maestro.p_switch[i]->ab_in(ab_in[i]);

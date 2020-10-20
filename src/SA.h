@@ -73,6 +73,7 @@ SC_MODULE(SA)
       io_time += (end - start).to_default_time_units();
 
       if(is_act_in) { // do matmul and send result
+
         // packet reg at this point contains the activation header. This allows outgoing 
         // result packet to automatically contain Y,Z,x,y,z dims
         start = sc_time_stamp();

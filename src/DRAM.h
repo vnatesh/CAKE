@@ -93,6 +93,8 @@ SC_MODULE(DRAM) {
 
               p_out1.d_type = 0;
               packet_out.Push(p_out1);   
+
+              if(LOG) log_packet("DRAM", "SRAM", INT_MIN, p_out1);
               // wait(20);
               // wait(lat_dram);
               packet_counter_send++;
@@ -117,13 +119,14 @@ SC_MODULE(DRAM) {
               wait(lat_dram);
               p_out2.d_type = 1;
               packet_out.Push(p_out2);
+              if(LOG) log_packet("DRAM", "SRAM", INT_MIN, p_out2);
               // wait(20);
               // wait(lat_dram);
               packet_counter_send++;
             }
           }
 
-          
+
         }
       }
     }
