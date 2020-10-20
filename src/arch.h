@@ -11,6 +11,7 @@
 #include<bits/stdc++.h>
 
 ofstream logfile;
+static char *PERF_FILE = "exp1fig1";
 
 const static bool DEBUG = 0;
 const static bool LOG = 1;
