@@ -11,4 +11,4 @@ make all
 ## Usage
 See [wiki](https://github.com/vnatesh/maestro/wiki) for usage.
 
-![Image of CAKE](https://github.com/vnatesh/CAKE/blob/master/cake_diagram.pdf)
+![Image of CAKE](cake_diagram.png)
