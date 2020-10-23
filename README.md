@@ -12,5 +12,5 @@ make all
 See [wiki](https://github.com/vnatesh/maestro/wiki) for usage.
 
 <p align = "center">
-<img  src="https://github.com/vnatesh/maestro/blob/master/cake_diagram.png" width="500">
+<img  src="https://github.com/vnatesh/maestro/blob/master/images/cake_diagram.png" width="500">
 </p>
