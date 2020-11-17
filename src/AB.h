@@ -54,7 +54,7 @@ SC_MODULE(AB)
     PacketSwitch::Packet p_in2;
 
     PacketSwitch::Packet p_out;
-    bool send_thread_start = 0;
+    // bool send_thread_start = 0;
     bool first_blk = 1;
     bool ready = 0;
 

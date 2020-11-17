@@ -350,7 +350,6 @@ SC_MODULE(SRAM) {
 
     bool send_thread_start_res = 0;
     int p_cnt = 0;
-    int K_cnt = 0;
 
     while(1) {
 
