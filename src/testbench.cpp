@@ -1,30 +1,13 @@
-/*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "DRAM.h"
 #include "SRAM.h"
 #include "maestro.h"
 
 #include <systemc.h>
+// #include <mc_scverify.h>
 #include <nvhls_int.h>
-
 #include <vector>
-
 #define NVHLS_VERIFY_BLOCKS (PacketSwitch)
-#include <nvhls_verify.h>
+// #include <nvhls_verify.h>
 using namespace::std;
 
 #include <testbench/nvhls_rand.h>
@@ -32,7 +15,6 @@ using namespace::std;
 // module load ~/cs148/catapult
 
 #include "matops.h"
-
 
 
 void write_perf_results(int total_time) {
@@ -136,7 +118,6 @@ SC_MODULE (testbench) {
     maestro.p_switch[0]->parent_out(sram_out);
     maestro.packet_in(sram_out);
 
-
     maestro.p_switch[0]->parent_partial_in(sram_partial_in);
     maestro.partial_out(sram_partial_in);
 
@@ -158,7 +139,6 @@ SC_MODULE (testbench) {
 
       maestro.p_switch[i]->right_partial_out(right_partial_out[i]); 
       maestro.p_switch[2*i+2]->parent_partial_in(right_partial_out[i]); 
-
     }
 
     // connect the last level of interior switches to the leaf switches
@@ -178,7 +158,6 @@ SC_MODULE (testbench) {
       maestro.leaf_switch[j]->partial_in(left_partial_out[i]);
       maestro.p_switch[i]->right_partial_out(right_partial_out[i]); 
       maestro.leaf_switch[j+1]->partial_in(right_partial_out[i]);
-
 
       j += 2;
     }
@@ -298,7 +277,6 @@ int sc_main(int argc, char *argv[]) {
   my_testbench.sram.result_buf = result_buf;
 
 
-
   cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
   // Create weight and activation matrices with random values
   my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
@@ -374,8 +352,6 @@ int sc_main(int argc, char *argv[]) {
   // cout << "Packets sent = " << my_testbench.sram.packet_counter << "\n";
   // cout << "IO Time = " << my_testbench.sram.io_time << "\n";
   // cout << "Idle Time = " << my_testbench.sram.idle_time << "\n\n";
-
-
 
   return 0;
 };
