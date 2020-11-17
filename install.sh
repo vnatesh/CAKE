@@ -55,9 +55,4 @@ rm -rf tmp
 cd ../..
 
 
-# Environment requirements
-
-export LD_LIBRARY_PATH=include/systemc-2.3.1a/lib-linux64/
-export SYSTEMC_HOME=include/systemc-2.3.1a/
-
 # g++ -pg -o sim_test -Wall -Wno-deprecated-declarations -Wno-unknown-pragmas -Wno-virtual-move-assign -std=c++11 -I. -I/home/vnatesh/CAKE/include/systemc-2.3.1a/include -I/home/vnatesh/CAKE/include/ac_types -I/home/vnatesh/CAKE/include/matchlib/connections/include -I/home/vnatesh/CAKE/include/matchlib/cmod/include -L/home/vnatesh/CAKE/include/systemc-2.3.1a/lib-linux64 -DHLS_CATAPULT -DCONNECTIONS_FAST_SIM -DSC_INCLUDE_DYNAMIC_PROCESSES src/testbench.cpp  -lsystemc  

@@ -7,6 +7,8 @@ CAKE is a systemC library for simulating matrix multiplication on 3D architectur
 git clone https://github.com/vnatesh/CAKE.git
 cd CAKE
 make install
+export LD_LIBRARY_PATH=include/systemc-2.3.1a/lib-linux64/
+export SYSTEMC_HOME=include/systemc-2.3.1a/
 ```
 
 Installation automatically downloads and installs the following tool/dependency verions:
