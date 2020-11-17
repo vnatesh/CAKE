@@ -15,11 +15,12 @@ static char *PERF_FILE = "exp1fig1";
 const static bool DEBUG = 0;
 const static bool LOG = 0;
 const static int tile_sz = 2; // change to 8 later
-const static double R = 2; // DRAM banwidth 
+const static double R = 2; // DRAM bandwidth 
 const static int alpha = (int) (1 / (R-1));
 const static int lat_dram = 1; // DRAM latency 
 const static int lat_internal = 1; // internal latency 
 // const static double lat_internal_factor = 4.000000; 
+const static char bw_growth = 'I'; // constant vs increasing     
 
 const static int Sx = 8;
 const static int Sy = 8;

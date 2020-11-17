@@ -14,35 +14,34 @@
 # limitations under the License.
 #
 
-# TOT = ~/cs148
-TOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))../)
-ROOT ?= $(TOT)
-
+CAKE_HOME := ${CURDIR}
 # Location of submodules
-CONNECTIONS_HOME ?= $(ROOT)/matchlib/connections
-RAPIDJSON_HOME ?= $(ROOT)/matchlib/rapidjson
-MATCHLIB_HOME ?= $(ROOT)/matchlib/cmod
+CONNECTIONS_HOME ?= $(CAKE_HOME)/include/matchlib/connections
+# RAPIDJSON_HOME ?= $(CAKE_HOME)/matchlib/rapidjson
+MATCHLIB_HOME ?= $(CAKE_HOME)/include/matchlib/cmod
 
-# TODO : add home variables 
+# 
 #MODULE ?= . /usr/share/Modules/init/sh; module load licenses/synopsys 
 # FIXME no boost/lib found, maybe include everything in /usr/local
-BOOST_HOME ?= /usr/local/
-SYSTEMC_HOME ?= /cad/tools/accellera/systemc-2.3.1
-CATAPULT_HOME ?= /cad/tools/mentor/catapult/Catapult_Synthesis_10.4b-841621
+# BOOST_HOME ?= /usr/local/
+SYSTEMC_HOME ?= $(CAKE_HOME)/include/systemc-2.3.1a
+# CATAPULT_HOME ?= /cad/tools/mentor/catapult/Catapult_Synthesis_10.4b-841621
 # 
 
 CC = g++
 
 INCDIR ?=
-INCDIR += -I. -I$(SYSTEMC_HOME)/include -I$(BOOST_HOME)/include -I$(CATAPULT_HOME)/Mgc_home/shared/include
-INCDIR += -I$(CONNECTIONS_HOME)/include
-INCDIR += -I$(RAPIDJSON_HOME)/include 
+#INCDIR += -I. -I$(SYSTEMC_HOME)/include -I$(BOOST_HOME)/include -I$(CATAPULT_HOME)/Mgc_home/shared/include
+INCDIR += -I. -I$(SYSTEMC_HOME)/include -I$(CAKE_HOME)/include/ac_types
+INCDIR += -I$(CONNECTIONS_HOME)/cmod/include
+#INCDIR += -I$(RAPIDJSON_HOME)/include 
 INCDIR += -I$(MATCHLIB_HOME)/include 
 
 LIBDIR ?=
-LIBDIR += -L. -L$(SYSTEMC_HOME)/lib-linux64 -L$(BOOST_HOME)/lib
+#LIBDIR += -L. -L$(SYSTEMC_HOME)/lib-linux64 -L$(BOOST_HOME)/lib
+LIBDIR += -L$(SYSTEMC_HOME)/lib-linux64
 
-## add -Wno-virtual-move-assign
+## 
 CFLAGS ?= 
 CFLAGS += -Wall -Wno-unknown-pragmas -Wno-virtual-move-assign -std=c++11 $(INCDIR) $(LIBDIR)
 
@@ -52,7 +51,8 @@ ifeq ($(HLS_CATAPULT),1)
 endif
 #
 LIBS ?=
-LIBS += -lstdc++ -lsystemc -lm -lpthread -lboost_timer -lboost_chrono -lboost_system
+LIBS += -lsystemc  
+# LIBS += -lstdc++ -lsystemc -lm -lpthread -lboost_timer -lboost_chrono -lboost_system
 
 # SIM_MODE
 # 0 = Synthesis view of Connections port and combinational code.
@@ -82,6 +82,6 @@ Build: all
 clean:
 	rm -rf *.o sim_* dump.vcd
 
-# (COV not needed)
+# 
 #CMOD_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 #include $(CMOD_DIR)/cov_Makefile

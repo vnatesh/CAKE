@@ -31,7 +31,7 @@ void write_perf_results(int total_time) {
   }
 
   else if(PERF_FILE == "exp1fig3") {
-    myfile << NUM_SA << "," << total_time << "," << lat_internal_factor << "\n";
+    // myfile << NUM_SA << "," << total_time << "," << lat_internal_factor << "\n";
   }
 
   else if(PERF_FILE == "exp1fig4") {
@@ -47,7 +47,7 @@ void write_perf_results(int total_time) {
   }
 
   else if(PERF_FILE == "exp1fig7") {
-    myfile << NUM_SA << "," << total_time << "," << lat_link[2] << "\n";
+    // myfile << NUM_SA << "," << total_time << "," << lat_link[2] << "\n";
   }
 
   else if(PERF_FILE == "exp1fig8") {

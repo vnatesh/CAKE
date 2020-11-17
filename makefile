@@ -13,12 +13,15 @@
 # limitations under the License.
 #
 
-include ../../cmod_Makefile
+include cmod_makefile
 
 all: sim_test
 
 run:
 	./sim_test
+
+install:
+	./install.sh
 
 sim_test: $(wildcard src/*.h) $(wildcard src/*.cpp) 
 	$(CC) -pg -o sim_test $(CFLAGS) $(USER_FLAGS) $(wildcard src/*.cpp) $(BOOSTLIBS) $(LIBS)
