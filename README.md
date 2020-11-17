@@ -1,12 +1,24 @@
 # Overview
-This is a systemC library for simulating matrix multiplication on 3D architectures.
+CAKE is a systemC library for simulating matrix multiplication on 3D architectures.
 
 ## Installation
-Make sure [Nvidia Matchlib](https://github.com/NVlabs/matchlib) and all its dependencies are installed, 
-then use the makefile to build the simulator:
+
 ```bash
-make all
+git clone https://github.com/vnatesh/CAKE.git
+cd CAKE
+make install
 ```
+
+Installation automatically downloads and installs the following tool/dependency verions:
+
+* `gcc` - 4.8.5 (with C++11)
+* `systemc` - 2.3.1a
+* `matchlib` 
+* `matchlib connections`
+* `make`
+* `python` 
+
+
 
 ## Usage
 See [wiki](https://github.com/vnatesh/maestro/wiki) for usage.
