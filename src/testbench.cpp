@@ -19,7 +19,6 @@
 #include "maestro.h"
 
 #include <systemc.h>
-#include <mc_scverify.h>
 #include <nvhls_int.h>
 
 #include <vector>
@@ -311,14 +310,14 @@ int sc_main(int argc, char *argv[]) {
   ref_out = MatMul<PacketSwitch::AccumType, PacketSwitch::AccumType>(my_testbench.dram.weights, my_testbench.dram.activations);
 
 
-  // if(DEBUG) {
+  if(DEBUG) {
     cout << "Weight matrix: \n";
     PrintMat(my_testbench.dram.weights);
     cout << "Activation matrix: \n";
     PrintMat(my_testbench.dram.activations);
     cout << "Reference Output: \n";
     PrintMat(ref_out);
-  // }
+  }
 
   sc_time start, end;
   start = sc_time_stamp();
@@ -334,7 +333,7 @@ int sc_main(int argc, char *argv[]) {
   int  SRAM_sz = M_sr*K_sr + K_sr*N_sr;
   int num_sr_blk = (M/M_sr)*(K/K_sr)*(N/N_sr);
   int num_packets = (SRAM_sz * num_sr_blk);
-  double SRAM_bw = (double) (((double) num_packets) / ((double) total_time));
+  // double SRAM_bw = (double) (((double) num_packets) / ((double) total_time));
   cout << "packets sent = " << num_packets << "\n";
   int comp_time = my_testbench.maestro.sa[0]->compute_time;
   cout << "SA compute cycles = " << comp_time << "\n";
@@ -343,7 +342,7 @@ int sc_main(int argc, char *argv[]) {
   int IO_d_ideal = NUM_PODS * alpha * POD_SZ;
   int IO_w = NUM_PODS * POD_SZ;
   int SRAM_sz_ideal = IO_d_ideal + IO_w;
-  double SRAM_growth = ((double) SRAM_sz) / ((double) SRAM_sz_ideal);
+  // double SRAM_growth = ((double) SRAM_sz) / ((double) SRAM_sz_ideal);
 
   bool CORRECT = 1;
   for(int i = 0; i < M*tile_sz; i++) {
