@@ -1,4 +1,3 @@
-
 #ifndef __ARCH_H__
 #define __ARCH_H__
 #include <systemc.h>
@@ -14,7 +13,7 @@ ofstream logfile;
 static char *PERF_FILE = "exp1fig1";
 
 const static bool DEBUG = 0;
-const static bool LOG = 1;
+const static bool LOG = 0;
 const static int tile_sz = 2; // change to 8 later
 const static double R = 2; // DRAM banwidth 
 const static int alpha = (int) (1 / (R-1));
