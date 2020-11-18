@@ -1,4 +1,13 @@
 sim_test
-include
+include/matchlib
+include/systemc-2.3.1a
+include/ac_types/ac_channel.h
+include/ac_types/ac_complex.h
+include/ac_types/ac_fixed.h
+include/ac_types/ac_float.h
+include/ac_types/ac_int.h
+include/ac_types/ac_sc.h
+include/ac_types/ac_std_float.h
+
 gmon.out
 exp1fig1
