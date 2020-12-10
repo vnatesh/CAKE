@@ -591,11 +591,104 @@ const static int N = %d;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+def test(fname = "exp1fig5"):
+  arch1 = include + '''
+const std::string PERF_FILE = "%s"; 
+const static char bw_growth = 'N'; // constant vs increasing     
+const static double lat_internal_factor = 0; 
+const static int tile_sz = 2; // change to 8 later
+const static double R = 2; // DRAM banwidth 
+const static int alpha = (int) (1 / (R-1));
+const static int lat_dram = 1;
+''' % fname
+  #
+  arch2 = '''
+const static int NUM_SA = Sx * Sy;
+const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
+const static int POD_SZ = sx * sy;
+const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
+const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
+
+const static int M_ob = sy; // Size of block in the M dimension in terms of tiles
+const static int K_ob = sx; // Size of operation block in the k dimension in terms of tiles
+const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N dimension in terms of tiles
+'''
+  #
+  M=64
+  K=64
+  N=128
+  # increase by NUM_PODS in the M and N dims
+  test_dims = [ [(2, 2), ('NUM_PODS', '1')], 
+                [(4, 2), ('NUM_PODS', '1')], 
+                [(4, 4), ('NUM_PODS', '1')], 
+                [(8, 4), ('NUM_PODS', '1')], 
+                [(8, 8), ('NUM_PODS', '1')],
+                [(16, 8), ('NUM_PODS', '1')],
+                [(16, 16), ('NUM_PODS', '1')]]
+  #
+  s1 = [2]
+  s2 = [2]
+  s3 = [2,4]
+  s4 = [2,4]
+  s5 = [2,4,8]
+  s6 = [2,4,8]
+  s7 = [4,8,16]
+  s = [s1] + [s2] + [s3] + [s4] + [s5] + [s6] + [s7]
+  #
+  f = open(fname, 'w')
+  f.write("number of SAs,number of cycles,s,lat_internal\n")
+  f.close()
+  exec_num = 900;
+  #
+  for i in xrange(len(test_dims)):
+    for j in xrange(len(s[i])):
+      a1 = '''
+const static int lat_internal = %d; // internal latency 
+const static int Sx = %d;
+const static int Sy = %d;
+const static int sx = %d;
+const static int sy = %d;
+''' % (64 / (test_dims[i][0][0]*test_dims[i][0][1] / s[i][j]),
+      test_dims[i][0][0],test_dims[i][0][1], s[i][j], s[i][j])
+      a3 = '''
+const static int M_sr = M_ob * %s; 
+const static int K_sr = K_ob * %s;
+''' % (test_dims[i][1][0],test_dims[i][1][1])
+      a4 = '''
+const static int N_sr = N_ob;
+const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
+const static int M = %d;
+const static int K = %d;
+const static int N = %d;
+#endif
+''' % (M, K, N)
+      arch = arch1 + a1 + arch2 + a3 + a4
+      run_exp(arch, exec_num)       
+      exec_num += 1
+      # print arch
+
+
+
+
 if __name__ == '__main__':
-  exp1fig1()
+  test()
+  # exp1fig1()
   # exp1fig2()
-  exp1fig3()
-  exp1fig4()
+  # exp1fig3()
+  # exp1fig4()
   # exp1fig5()
   # exp1fig6()
   # exp1fig7()

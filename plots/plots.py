@@ -319,6 +319,47 @@ def plot_mem_size_R(fname = 'mem_size_R'):
 
 
 
+
+
+
+
+def test(fname = 'all_combs'):
+	plt.rcParams.update({'font.size': 12})
+	if not os.path.exists(fname):
+		print("file %s not found" % fname)
+		return
+	#
+	df = pandas.read_csv(fname)
+	df = df.sort_values('number of SAs')
+	SAs = [4,8,16,32,64,128,256]
+	sa1 = [4,8,16,32,64,128]
+	sa2 = [16,32,64,128,256]
+	sa3 = [64,128,256]
+	sa4 = [256]
+	NUM_SA = [sa1]+[sa2]+[sa3]+[sa4]
+	single_pod = 4 # 2x2 pod
+	single_pod_lat = df[(df['number of SAs'] == single_pod) & (df['s'] == 2)]['number of cycles']._values[0] / 2
+	#
+	markers = ['o','v','s','d','^']
+	colors = ['b','g','aqua','k','m']
+	s = [2,4,8,16]
+	for i in xrange(len(s)):
+		speedup = single_pod_lat / df[(df['s'] == s[i])]['number of cycles']
+		plt.plot(list(NUM_SA[i]), list(speedup), label = s[i], marker = markers[i])
+	#
+	plt.plot(SAs, [i/single_pod for i in SAs], label = 'ideal')	
+	plt.title("Impact of Local Accumulation on Speedup")
+	plt.xlabel("Number of SAs", fontsize = 20)
+	plt.ylabel("Speedup", fontsize = 20)
+	plt.legend(title="s value", loc = "middle right")
+	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+
+
+
+
+
 if __name__ == '__main__':
 	plot_exp1fig1()
 	plot_exp1fig2()
