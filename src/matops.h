@@ -80,4 +80,66 @@ VectorType TileMul(VectorType mat_A, VectorType mat_B) {
 
 
 
+// // load matrix from a file
+template<typename T> vector<vector<T> > GetMatFromFile(char* filename, int rows, int cols) {
+    vector<vector<T> > data(rows, vector<T>(cols)); 
+    std::ifstream file(filename);
+    int tmp;
+
+    for(int row = 0; row < rows; ++row) {
+      std::string line;
+      std::getline(file, line);
+      if(!file.good() )
+        break;
+
+      std::stringstream iss(line);
+
+      for(int col = 0; col < cols; ++col) {
+        std::string val;
+        std::getline(iss, val, ' ');
+        if(!iss.good())
+          break;
+
+        std::stringstream convertor(val);
+        convertor >> tmp;
+        data[row][col] = (NVINT32) tmp;
+      }
+    }
+    
+    return data;
+}
+
+
+// template<typename T> vector<vector<T>> GetMatFromFile(char* filename, int rows, int cols) {
+
+//     char line[10000];
+//     FILE *fp = fopen(filename, "r");
+//     char* a;
+//     vector<vector<T>> mat(rows, vector<T>(cols)); 
+
+//     cout << filename << "\n";
+
+//     int i = 0;
+//     while(fgets(line, sizeof(line), fp) != NULL) {
+      
+//       a = strtok(line, delims);
+
+//       for(int j = 0; j < K; j++) {
+//         int y = atoi(strtok(NULL, delims));
+//         mat[i][j] = (NVINT32) y;
+//         cout << mat[i][j] << " ";
+//       }
+//       cout << "\n";
+//       i++;      
+//     }
+
+//     cout << "\n\n\n\n";
+//     fclose(fp);
+//     return mat;
+// }
+
+
+
+
+
 #endif

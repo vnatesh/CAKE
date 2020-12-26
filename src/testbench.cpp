@@ -17,6 +17,9 @@ using namespace::std;
 #include "matops.h"
 
 
+
+
+
 void write_perf_results(int total_time) {
 
   ofstream myfile;
@@ -241,6 +244,9 @@ SC_MODULE (testbench) {
 
 
 
+
+
+
 int sc_main(int argc, char *argv[]) {
   
   remove("log/logfile.txt"); 
@@ -279,8 +285,11 @@ int sc_main(int argc, char *argv[]) {
 
   cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
   // Create weight and activation matrices with random values
-  my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
-  my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
+  // my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
+  // my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
+  my_testbench.dram.weights = GetMatFromFile<PacketSwitch::AccumType>(WEIGHT_FILE, M*tile_sz, K*tile_sz);
+  my_testbench.dram.activations = GetMatFromFile<PacketSwitch::AccumType>(DATA_FILE, K*tile_sz, N*tile_sz);  
+
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M*tile_sz, 
                                                                 vector<PacketSwitch::AccumType>(N*tile_sz, -1));
   my_testbench.dram.result = result;
@@ -333,7 +342,7 @@ int sc_main(int argc, char *argv[]) {
 
 
   if(CORRECT) {
-    write_perf_results(total_time);
+    // write_perf_results(total_time);
     cout << "\nMMM Result Correct!\n\n";
   } else {
     cout << "\nMMM Result Incorrect! :( \n\n";
@@ -345,6 +354,21 @@ int sc_main(int argc, char *argv[]) {
   cout << "IO Time send = " << my_testbench.dram.io_time_send << "\n";
   cout << "Packets received = " << my_testbench.dram.packet_counter_recv << "\n";
   cout << "IO Time recv = " << my_testbench.dram.io_time_recv << "\n\n";
+
+
+
+  ofstream myfile;
+  myfile.open(RESULT_FILE, ios::app);
+  
+  for(int i = 0; i < M*tile_sz; i++) {
+    for(int j = 0; j < N*tile_sz; j++) {
+      myfile << my_testbench.dram.result[i][j] << " ";
+    }
+    myfile << "\n";
+  }
+
+  myfile.close();
+
 
   // cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
 

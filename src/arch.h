@@ -11,6 +11,11 @@
 
 ofstream logfile;
 static char *PERF_FILE = "exp1fig1";
+static char *WEIGHT_FILE = "weights";
+static char *DATA_FILE = "data";
+static char *RESULT_FILE = "result";
+static const char delims[] = " ";
+
 
 const static bool DEBUG = 0;
 const static bool LOG = 0;
