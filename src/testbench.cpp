@@ -282,13 +282,15 @@ int sc_main(int argc, char *argv[]) {
   vector<vector<PacketSwitch::Packet>> result_buf(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
   my_testbench.sram.result_buf = result_buf;
 
-
   cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
-  // Create weight and activation matrices with random values
-  // my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
-  // my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
-  my_testbench.dram.weights = GetMatFromFile<PacketSwitch::AccumType>(WEIGHT_FILE, M*tile_sz, K*tile_sz);
-  my_testbench.dram.activations = GetMatFromFile<PacketSwitch::AccumType>(DATA_FILE, K*tile_sz, N*tile_sz);  
+  // Create weight and activation matrices from weight/activation files or random values
+  if(USE_FILE) {
+    my_testbench.dram.weights = GetMatFromFile<PacketSwitch::AccumType>(WEIGHT_FILE, M*tile_sz, K*tile_sz);
+    my_testbench.dram.activations = GetMatFromFile<PacketSwitch::AccumType>(DATA_FILE, K*tile_sz, N*tile_sz);  
+  } else {
+    my_testbench.dram.weights = GetMat<PacketSwitch::AccumType>(M*tile_sz, K*tile_sz);
+    my_testbench.dram.activations = GetMat<PacketSwitch::AccumType>(K*tile_sz, N*tile_sz);
+  }
 
   vector<vector<PacketSwitch::AccumType>> result = vector<vector<PacketSwitch::AccumType>>(M*tile_sz, 
                                                                 vector<PacketSwitch::AccumType>(N*tile_sz, -1));
@@ -357,18 +359,19 @@ int sc_main(int argc, char *argv[]) {
 
 
 
-  ofstream myfile;
-  myfile.open(RESULT_FILE, ios::app);
-  
-  for(int i = 0; i < M*tile_sz; i++) {
-    for(int j = 0; j < N*tile_sz; j++) {
-      myfile << my_testbench.dram.result[i][j] << " ";
+  if(USE_FILE) {
+    ofstream myfile;
+    myfile.open(RESULT_FILE, ios::app);
+    
+    for(int i = 0; i < M*tile_sz; i++) {
+      for(int j = 0; j < N*tile_sz; j++) {
+        myfile << my_testbench.dram.result[i][j] << " ";
+      }
+      myfile << "\n";
     }
-    myfile << "\n";
+
+    myfile.close();
   }
-
-  myfile.close();
-
 
   // cout << "SRAM cnt = " << my_testbench.sram.received_cnt << "\n\n";
 

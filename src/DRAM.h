@@ -170,7 +170,7 @@ SC_MODULE(DRAM) {
           end = sc_time_stamp();
           io_time_recv += (end - start).to_default_time_units();
           cout << "\n\nMAESTRO MMM RESULT\n\n";
-          PrintMat(result); 
+          // PrintMat(result); 
           sc_stop(); // STOP the stimulation here
         }
       }

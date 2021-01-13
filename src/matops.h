@@ -81,7 +81,7 @@ VectorType TileMul(VectorType mat_A, VectorType mat_B) {
 
 
 // // load matrix from a file
-template<typename T> vector<vector<T> > GetMatFromFile(char* filename, int rows, int cols) {
+template<typename T> vector<vector<T> > GetMatFromFile(std::string filename, int rows, int cols) {
     vector<vector<T> > data(rows, vector<T>(cols)); 
     std::ifstream file(filename);
     int tmp;
@@ -105,7 +105,7 @@ template<typename T> vector<vector<T> > GetMatFromFile(char* filename, int rows,
         data[row][col] = (NVINT32) tmp;
       }
     }
-    
+
     return data;
 }
 

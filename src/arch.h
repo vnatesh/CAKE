@@ -10,15 +10,16 @@
 #include<bits/stdc++.h>
 
 ofstream logfile;
-static char *PERF_FILE = "exp1fig1";
-static char *WEIGHT_FILE = "weights";
-static char *DATA_FILE = "data";
-static char *RESULT_FILE = "result";
+std::string PERF_FILE = "exp1fig1";
+std::string WEIGHT_FILE = "weights";
+std::string DATA_FILE = "data";
+std::string RESULT_FILE = "result";
 static const char delims[] = " ";
-
 
 const static bool DEBUG = 0;
 const static bool LOG = 0;
+const static bool USE_FILE = 0;
+
 const static int tile_sz = 2; // change to 8 later
 const static double R = 2; // DRAM bandwidth 
 const static int alpha = (int) (1 / (R-1));
