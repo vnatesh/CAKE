@@ -12,7 +12,6 @@ source env.sh
 
 Installation automatically downloads and installs the following tool/dependency verions:
 
-* `gcc` - 4.8.5 (with C++11)
 * `systemc` - 2.3.1a
 * `matchlib` 
 * `matchlib connections`

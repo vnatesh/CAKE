@@ -19,7 +19,8 @@ using namespace::std;
 
 
 
-
+// perf results for different experiments
+// TODO : consolidate into 1 file with all perf stats
 void write_perf_results(int total_time) {
 
   ofstream myfile;
@@ -55,6 +56,10 @@ void write_perf_results(int total_time) {
 
   else if(PERF_FILE == "exp1fig8") {
     myfile << NUM_SA << "," << total_time << "," << sx << "\n";
+  }
+  
+  else if(PERF_FILE == "mat_dim_test") {
+    myfile << M << "," << K << "," << N << "," << total_time << "," <<"\n";
   }
 
   // else if(PERF_FILE == "exp1fig2") {
@@ -344,7 +349,7 @@ int sc_main(int argc, char *argv[]) {
 
 
   if(CORRECT) {
-    // write_perf_results(total_time);
+    write_perf_results(total_time);
     cout << "\nMMM Result Correct!\n\n";
   } else {
     cout << "\nMMM Result Incorrect! :( \n\n";

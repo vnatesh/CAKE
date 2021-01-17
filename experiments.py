@@ -18,8 +18,13 @@ include = '''
 #include <sys/time.h>
 #include<bits/stdc++.h>
 ofstream logfile;
+std::string WEIGHT_FILE = "weights";
+std::string DATA_FILE = "data";
+std::string RESULT_FILE = "result";
+static const char delims[] = " ";
 const static bool DEBUG = 0;
 const static bool LOG = 0;
+const static bool USE_FILE = 0;
 '''
 
 
@@ -32,6 +37,94 @@ def run_exp(arch_spec, exec_num):
     cmd = 'make > /dev/null 2>&1; mv sim_test sim_test%d; ./sim_test%d > /dev/null 2>&1 &' % (exec_num, exec_num)
     subprocess.call(cmd, shell=True)
     
+
+
+
+def build_arch(c):
+  return '''
+#ifndef __ARCH_H__
+#define __ARCH_H__
+#include <systemc.h>
+#include <nvhls_int.h>
+#include <nvhls_connections.h>
+#include <nvhls_vector.h>
+#include <ArbitratedScratchpad.h>
+#include <ArbitratedScratchpad/ArbitratedScratchpadTypes.h>
+#include <sys/time.h>
+#include<bits/stdc++.h>
+
+ofstream logfile;
+static char *PERF_FILE = "%s";
+static char *WEIGHT_FILE = "%s";
+static char *DATA_FILE = "%s";
+static char *RESULT_FILE = "%s";
+static const char delims[] = " ";
+
+const static bool DEBUG = 0;
+const static bool LOG = 0;
+const static int tile_sz = %d;
+const static double R = %.2f; 
+const static int alpha = (int) (1 / (R-1));
+const static int lat_dram = %d; 
+const static int lat_internal = %d; // internal latency 
+
+const static int sx = %d;
+const static int sy = %d;
+const static int Sx = %d;
+const static int Sy = %d;
+const static int NUM_SA = Sx * Sy;
+const static int NUM_LEVELS = (int) ceil(log(((double) NUM_SA)) / log(2));
+const static int POD_SZ = sx * sy;
+const static int NUM_PODS = (int) (NUM_SA / POD_SZ); // user can opt to use only a portion of the total
+const static int pod_ab_hops = (int) ceil(log(((double) sx)) / log(2));
+
+const static int M_ob = sy; // Size of block in the M dimension in terms of tiles
+const static int K_ob = sx; // Size of operation block in the k dimension in terms of tiles
+const static int N_ob = sx * alpha * NUM_PODS; // Size of operation block in N dimension in terms of tiles
+
+const static int M_sr = M_ob * %s; 
+const static int K_sr = K_ob * %s;
+const static int N_sr = N_ob;
+
+const static int NUM_PODS_USED = (int) ((M_sr/M_ob) * (K_sr/K_ob)); 
+const static int M = %d;
+const static int K = %d;
+const static int N = %d;
+#endif
+''' % (c['perf_file'], c['w_file'], c['d_file'], c['r_file'], c['tile_sz'], 
+  c['R'], c['lat_ext'], c['lat_int'], c['s'], c['s'], c['Sx'], 
+  c['Sy'], 'NUM_PODS', '1', c['M'], c['K'], c['N'])
+  
+
+
+
+
+
+def mat_dim_test(fname = "mat_dim_test"):
+  CAKE_params = {'M' : None, 'K' : None, 'N' : None,
+      'Sx' : 16, 'Sy' : 8, 's' : 4, 'R' : 2, 
+      'tile_sz' : 2, 'lat_ext' : 4, 'lat_int' : 1, 
+      'w_file' : 'weights', 'd_file' : 'data', 
+      'r_file' : 'result', 'perf_file' : fname}
+  #
+  dims = [(64,64,64),(64,64,128),(64,128,64),(128,64,64),
+          (128,128,64),(128,64,128),(64,128,128),(128,128,128),
+          (128,128,256),(128,256,128),(256,128,128)]
+  exec_num = 900;
+  f = open(fname, 'w')
+  f.write("number of SAs,number of cycles,s,lat_internal\n")
+  f.close()
+  #
+  for i in dims:
+    CAKE_params['M'] = i[0]
+    CAKE_params['K'] = i[1]
+    CAKE_params['N'] = i[2]
+    arch = build_arch(CAKE_params)
+    print(arch)
+    run_exp(arch, exec_num)       
+    exec_num += 1
+
+
 
 
 
@@ -587,16 +680,6 @@ const static int N = %d;
     run_exp(arch, exec_num)       
     exec_num += 1
     # print arch
-
-
-
-
-
-
-
-
-
-
 
 
 

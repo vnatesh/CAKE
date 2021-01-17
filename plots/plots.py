@@ -301,9 +301,8 @@ def plot_exp1ABskip(fname = 'exp1ABskip'):
 
 
 
-
-def plot_mem_size_R(fname = 'mem_size_R'):
-	NUM_SA = 64
+ 
+def plot_mem_size_R(fname = 'mem_size_R', NUM_SA = 64):
 	# 100 linearly spaced numbers
 	R = np.linspace(1.01,2,100)
 	SZ_sr = (NUM_SA*R) / (R-1)
@@ -317,6 +316,100 @@ def plot_mem_size_R(fname = 'mem_size_R'):
 	plt.close('all')
 
 
+
+def ext_mem_accesses(M,K,N,Sx,Sy,s,R,tile_sz):
+	'''
+		inputs : MMM dims and arch params
+		return number accesses (loads and stores) to external memory (DRAM)
+	'''
+	M_sr = s*((Sx*Sy)/(s*s))*tile_sz
+	K_sr = s*tile_sz
+	N_sr = s*((Sx*Sy)/(s*s))*(1/(R-1))*tile_sz
+	num_cbs_blks = K/K_sr * M/M_sr * N/N_sr
+	dram_transfers_per_blk = (M_sr*K_sr +  K_sr*N_sr) # CAKE transmits only weight and data
+	result = M*N
+	return(num_cbs_blks*dram_transfers_per_blk + result)
+
+
+def local_mem_size(Sx,Sy,s,R,tile_sz):
+	'''
+		inputs : MMM dims and arch params
+		return : local memory (SRAM) size in bytes
+	'''
+	M_sr = s*((Sx*Sy)/(s*s))*tile_sz
+	K_sr = s*tile_sz
+	N_sr = s*((Sx*Sy)/(s*s))*(1/(R-1))*tile_sz
+	weights = M_sr*K_sr
+	data = K_sr*N_sr
+	partial = M_sr*N_sr
+	return(weights+data+partial)
+
+
+
+
+def plot_DRAM_access(M,K,N,s,R,tile_sz, fname = 'dram_acc'):
+	plt.rcParams.update({'font.size': 12})
+	# NUM_SA = [4,8,16,32,64,128,256]
+	NUM_SA = [1,2,4,8]
+	markers = ['o','v']
+	colors = ['g','b'] 	
+	# C = [(2,2),(4,2),(4,4),(8,4),(8,8),(16,8),(16,16)]
+	# C = [(4,4),(8,4),(8,8),(16,8)]
+	C = [(64,64),(128,64),(128,128),(256,128)]
+	labels = ['CAKE DRAM','Intel i9 DRAM', 'CAKE SRAM', 'i9 SRAM']
+	mem_acc = [ext_mem_accesses(M,K,N,c[0],c[1],s,R,tile_sz) / (10**9) for c in C]
+	mem_sz = [local_mem_size(c[0],c[1],s,R,tile_sz) for c in C]
+	#
+	NUM_CPUs = [1,2,3,4,5,6,7,8,9,10]
+	cpu_mem_acc = [0]*len(NUM_CPUs)
+	for i in NUM_CPUs:
+		df1 = pandas.read_csv('reports/report_%d.csv' % i,skiprows=17,skipfooter=17)
+		df2 = pandas.read_csv('reports/report_%d.csv' % i,skipfooter=20)
+		avg_dram_bw = df1['Average']._values[0]
+		elapsed_time = df2[df2['Metric Name']=='Elapsed Time']['Metric Value']._values[0]
+		cpu_mem_acc[i-1] = (avg_dram_bw * elapsed_time)/4 # divide by 4 bytes to get number of 32bit floats transferred
+	# cpu_mem_acc = [1633248996, 1548046440, 1270838124, 2028060840, 1592447772, 1208436252, 1764052920, 1372841184]
+	#
+	plt.plot(list(NUM_SA), list(mem_acc), label = labels[0],  marker = markers[0], color = colors[0])
+	plt.plot(list(NUM_CPUs), list(cpu_mem_acc), label = labels[1],  marker = markers[1], color = colors[1])
+	# plt.plot(list(NUM_SA), list(mem_sz), label = labels[2], marker = markers[0], color = colors[0])
+	# plt.plot(list(NUM_CPUs),[20*(10**6)] * len(NUM_CPUs), label = labels[3], marker = markers[1], color = colors[1])
+	#
+	plt.title('DRAM Accesses in CAKE vs. Intel i9 CPU')
+	plt.xlabel("Number of PEs", fontsize = 12)
+	plt.ylabel("Number of Values Transferred (10^9)", fontsize = 12)
+	plt.legend(loc = "upper right", prop={'size': 12})
+	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
+
+
+
+def plot_local_mem_size(M,K,N,s,R,tile_sz):
+	plt.rcParams.update({'font.size': 12})
+	# NUM_SA = [4,8,16,32,64,128,256]
+	NUM_SA = [1,2,4,8]
+	markers = ['o','v']
+	colors = ['g','b'] 	
+	# C = [(2,2),(4,2),(4,4),(8,4),(8,8),(16,8),(16,16)]
+	C = [(4,4),(8,4),(8,8),(16,8)]
+	labels = ['CAKE SRAM', 'i9 SRAM']
+	mem_sz = [local_mem_size(M,K,N,c[0],c[1],s,R,tile_sz) for c in C]
+	NUM_CPUs = [1,2,3,4,5,6,7,8]
+	cpu_mem_acc = [1633248996, 1548046440, 1270838124, 2028060840, 1592447772, 1208436252, 1764052920, 1372841184]
+	#
+	plt.plot(list(NUM_SA), list(mem_sz), label = labels[0], marker = markers[0], color = colors[0])
+	plt.plot(list(NUM_CPUs),[20*(10**6)] * len(NUM_CPUs), label = labels[1], marker = markers[1], color = colors[1])
+	#
+	plt.title('SRAM Size in CAKE vs. Intel i9 CPU')
+	plt.xlabel("Number of PEs", fontsize = 12)
+	plt.ylabel("Bytes", fontsize = 12)
+	plt.legend(loc = "upper right", prop={'size': 12})
+	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
 
 
 
