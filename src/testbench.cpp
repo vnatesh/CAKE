@@ -57,9 +57,9 @@ void write_perf_results(int total_time) {
   else if(PERF_FILE == "exp1fig8") {
     myfile << NUM_SA << "," << total_time << "," << sx << "\n";
   }
-  
+
   else if(PERF_FILE == "mat_dim_test") {
-    myfile << M << "," << K << "," << N << "," << total_time << "," <<"\n";
+    myfile << M << "," << K << "," << N << "," << total_time"\n";
   }
 
   // else if(PERF_FILE == "exp1fig2") {

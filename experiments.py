@@ -112,7 +112,7 @@ def mat_dim_test(fname = "mat_dim_test"):
           (128,128,256),(128,256,128),(256,128,128)]
   exec_num = 900;
   f = open(fname, 'w')
-  f.write("number of SAs,number of cycles,s,lat_internal\n")
+  f.write("M,K,N,number of cycles\n")
   f.close()
   #
   for i in dims:
@@ -767,7 +767,8 @@ const static int N = %d;
 
 
 if __name__ == '__main__':
-  test()
+  mat_dim_test()
+  # test()
   # exp1fig1()
   # exp1fig2()
   # exp1fig3()
