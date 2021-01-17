@@ -62,6 +62,7 @@ static const char delims[] = " ";
 
 const static bool DEBUG = 0;
 const static bool LOG = 0;
+const static bool USE_FILE = 0;
 const static int tile_sz = %d;
 const static double R = %.2f; 
 const static int alpha = (int) (1 / (R-1));
@@ -125,6 +126,27 @@ def mat_dim_test(fname = "mat_dim_test"):
     exec_num += 1
 
 
+
+def cpu_comp_test(fname = "cpu_comp_test"):
+  CAKE_params = {'M' : 1024, 'K' : 1024, 'N' : 1024,
+      'Sx' : None, 'Sy' : None, 's' : 8, 'R' : 2, 
+      'tile_sz' : 16, 'lat_ext' : 1, 'lat_int' : 1, 
+      'w_file' : 'weights', 'd_file' : 'data', 
+      'r_file' : 'result', 'perf_file' : fname}
+  #
+  dims = [(8,8),(16,8),(16,16),(32,16)]
+  exec_num = 3742;
+  f = open(fname, 'w')
+  f.write("Sx,Sy,number of cycles\n")
+  f.close()
+  #
+  for i in dims:
+    CAKE_params['Sx'] = i[0]
+    CAKE_params['Sy'] = i[1]
+    arch = build_arch(CAKE_params)
+    print(arch)
+    run_exp(arch, exec_num)       
+    exec_num += 1
 
 
 
@@ -767,7 +789,8 @@ const static int N = %d;
 
 
 if __name__ == '__main__':
-  mat_dim_test()
+  cpu_comp_test()
+  # mat_dim_test()
   # test()
   # exp1fig1()
   # exp1fig2()

@@ -27,7 +27,7 @@ void write_perf_results(int total_time) {
   myfile.open(PERF_FILE, ios::app);
 
   if(PERF_FILE == "exp1fig1") {
-    myfile << NUM_SA << "," << total_time << "," << bw_growth << "\n";
+    // myfile << NUM_SA << "," << total_time << "," << bw_growth << "\n";
   } 
 
   else if(PERF_FILE == "exp1fig2") {
@@ -59,8 +59,14 @@ void write_perf_results(int total_time) {
   }
 
   else if(PERF_FILE == "mat_dim_test") {
-    myfile << M << "," << K << "," << N << "," << total_time"\n";
+    myfile << M << "," << K << "," << N << "," << total_time << "\n";
   }
+
+  else if(PERF_FILE == "cpu_comp_test") {
+    myfile << Sx << "," << Sy << "," << total_time << "\n";
+  }
+
+
 
   // else if(PERF_FILE == "exp1fig2") {
 
