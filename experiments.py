@@ -64,8 +64,7 @@ const static bool DEBUG = 0;
 const static bool LOG = 0;
 const static bool USE_FILE = 0;
 const static int tile_sz = %d;
-const static double R = %.2f; 
-const static int alpha = (int) (1 / (R-1));
+const static int alpha = %d;
 const static int lat_dram = %d; 
 const static int lat_internal = %d; // internal latency 
 
@@ -93,7 +92,7 @@ const static int K = %d;
 const static int N = %d;
 #endif
 ''' % (c['perf_file'], c['w_file'], c['d_file'], c['r_file'], c['tile_sz'], 
-  c['R'], c['lat_ext'], c['lat_int'], c['s'], c['s'], c['Sx'], 
+  c['alpha'], c['lat_ext'], c['lat_int'], c['s'], c['s'], c['Sx'], 
   c['Sy'], 'NUM_PODS', '1', c['M'], c['K'], c['N'])
   
 
@@ -143,6 +142,32 @@ def cpu_comp_test(fname = "cpu_comp_test"):
   for i in dims:
     CAKE_params['Sx'] = i[0]
     CAKE_params['Sy'] = i[1]
+    arch = build_arch(CAKE_params)
+    print(arch)
+    run_exp(arch, exec_num)       
+    exec_num += 1
+
+
+
+def cpu_comp_test(fname = "cpu_comp_test3"):
+  CAKE_params = {'M' : 256, 'K' : 256, 'N' : 256,
+      'Sx' : None, 'Sy' : None, 's' : None, 'alpha' : None, 
+      'tile_sz' : 16, 'lat_ext' : 1, 'lat_int' : 1, 
+      'w_file' : 'weights', 'd_file' : 'data', 
+      'r_file' : 'result', 'perf_file' : fname}
+  #
+  # dims = [(8,8),(16,8),(16,16),(32,16)]
+  dims = [(2,2,2,1).(4,2,2,1),(4,4,4,2),(8,4,4,2),(8,8,8,4),(16,8,8,4),(16,16,16,8)]
+  exec_num = 777;
+  f = open(fname, 'w')
+  f.write("Sx,Sy,s,alpha,number of cycles\n")
+  f.close()
+  #
+  for i in range(len(dims)):
+    CAKE_params['Sx'] = dims[i][0]
+    CAKE_params['Sy'] = dims[i][1]
+    CAKE_params['s'] = dims[i][2]
+    CAKE_params['alpha'] = dims[i][3]
     arch = build_arch(CAKE_params)
     print(arch)
     run_exp(arch, exec_num)       
