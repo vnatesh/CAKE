@@ -194,50 +194,139 @@ SC_MODULE(PacketSwitch)
       Packet p_in_left;
       Packet p_in_right;
       Packet p_in_ab;
-
-
-      int turn = 3;
-
+        
+      int turn = 0;
+      int ab_status = 0;  // 0 not in use, 1 waiting on left child, 2 waiting on right child
+      
       // read first from right before left since left SA processes packets before right SA
       while(1) {
+ 
+        // AB should always have priority to prevent backups
+        if(ab_in.PopNB(p_in_ab)) {
+              parent_out.Push(p_in_ab); 
+        } 
+       // AB is not waiting on a child
+        else if (ab_status == 0)  { 
+          switch (turn)
+          {
+            case 0:
+              if(right_in.PopNB(p_in_right)) {
+                if(p_in_right.dst == id) {
+                  ab_out.Push(p_in_right);
+                  ab_status = 1;
+                } else {
+                  parent_out.Push(p_in_right);
+                }
+              } 
+              turn = 1;          
+              break;
+            
+            case 1:
+              if(left_in.PopNB(p_in_left)) {
+                if(p_in_left.dst == id) {
+                  ab_out.Push(p_in_left);
+                  ab_status = 2;
+                } else {
+                  parent_out.Push(p_in_left);
+                }
+              } 
 
-        if(turn % 3 == 0) {
+              turn = 0;
+              break;
 
-          if(right_in.PopNB(p_in_right)) {
-            if(p_in_right.dst == id) {
-              ab_out.Push(p_in_right);
-            } else {
-              parent_out.Push(p_in_right);
-            }
+            
+            default:
+              
+              cout << "Packet switch issue\n";
+              break;
           }
+        
+        }  
+        // AB waiting on left child
+        else if (ab_status == 1) {
+       
+            if(left_in.PopNB(p_in_left)) {
+                if(p_in_left.dst == id) {
+                  ab_out.Push(p_in_left);
+                  ab_status = 0;
+                  //turn = 2;
 
-          turn = 1;
-
-        } else if (turn % 3 == 1) {
-
-          if(left_in.PopNB(p_in_left)) {
-            if(p_in_left.dst == id) {
-              ab_out.Push(p_in_left);
-            } else {
-              parent_out.Push(p_in_left);
-            }
-          }
-
-          turn = 2;
-
-        } else if(turn % 3 == 2) {
-
-          if(ab_in.PopNB(p_in_ab)) {
-            parent_out.Push(p_in_ab); 
-          }
-
-          turn = 3;
+                } else {
+                  parent_out.Push(p_in_left);
+                  
+                }
+                
+              }
+          
+        
+        } 
+        // AB waiting on right child
+        else if (ab_status == 2) {
+            if(right_in.PopNB(p_in_right)) {
+                if(p_in_right.dst == id) {
+                  ab_out.Push(p_in_right);
+                  ab_status = 0;
+                  //turn = 2;
+                } else {
+                  parent_out.Push(p_in_right);
+                }
+              }
+        
+        } else {
+          cout << "ab_status has invalid value: " << ab_status << "\n";
+          ab_status = 0; // try to recover
         }
 
-        wait();
+
+        wait();   
+        
+        /*
+        // Old switch method
+        switch (turn)
+        {
+          case 0:
+            if(right_in.PopNB(p_in_right)) {
+              if(p_in_right.dst == id) {
+                ab_out.Push(p_in_right);
+              } else {
+                parent_out.Push(p_in_right);
+              }
+            }
+
+            turn = 1;          
+            break;
+            
+          case 1:
+            if(left_in.PopNB(p_in_left)) {
+              if(p_in_left.dst == id) {
+                ab_out.Push(p_in_left);
+              } else {
+                parent_out.Push(p_in_left);
+              }
+            }
+
+            turn = 2;
+            break;
+            
+          case 2:
+            if(ab_in.PopNB(p_in_ab)) {
+              parent_out.Push(p_in_ab); 
+            }
+
+            turn = 0;
+            break;
+            
+          default:
+            
+            cout << "Packet switch issue\n";
+            break;
+        }
+
+
+        wait(); */
+        
       }
     }
-
 
 
 
