@@ -3,33 +3,100 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import numpy as np
 import os
+import re
+
+
+
+
+
+def plot_internal_bw_cpu(exp, arr_size, file_name, ncores):
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['b','g','aqua','k','m','r']
+	# labels = ['']	
+	a = open(file_name,'r').read().split('\n')
+	a = [i for i in a if exp in i]
+	a = [i.split('\t') for i in a]
+	a = [i for i in a if i[6] == 'areasize=%d' % arr_size]
+	NUM_CPUs = range(1,ncores+1)
+	int_bw = []
+	for i in range(len(NUM_CPUs)):
+		int_bw.append(float(a[i][-2][10:]) / (10**9))
+	#
+	plt.plot(list(NUM_CPUs), int_bw,  marker = markers[2], color = colors[1])
+	plt.title('L3 Cache Bandwidth on AMD Zen3 CPU')
+	plt.xlabel("Number of Cores", fontsize = 12)
+	plt.ylabel("Bandwidth (GB/s)", fontsize = 12)
+	plt.xticks(NUM_CPUs)
+	# plt.legend(loc = "lower right", prop={'size': 12})
+	# plt.savefig("./plots/%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
 
 
 def plot_exp1fig1(fname = 'exp1fig1'):
-	plt.rcParams.update({'font.size': 16})
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['g','b','aqua','k','m','r']
+	labels = ['constant', 'linearly increasing']
 	if not os.path.exists(fname):
 		print("file %s not found" % fname)
 		return
 	#
 	df = pandas.read_csv(fname)
-	df = df.sort_values('number of SAs')
-	NUM_SA = [16,32,64]
-	single_pod_lat = df[(df['bw growth'] == 'C')][(df['number of SAs'] == 16)]['number of cycles']._values[0]
-	constant = df[(df['bw growth'] == 'C')][['number of SAs','number of cycles']]
-	linear_inc =  df[(df['bw growth'] == 'I')][['number of SAs','number of cycles']]
-	plt.plot(list(constant['number of SAs']), 
+	df = df.sort_values('number of pods')
+	NUM_PODS = [1,2,3,4,6,8,12,16]
+	single_pod_lat = df[(df['bw growth'] == 'C')][(df['number of pods'] == 1)]['number of cycles']._values[0]
+	constant = df[(df['bw growth'] == 'C')][['number of pods','number of cycles']]
+	linear_inc =  df[(df['bw growth'] == 'I')][['number of pods','number of cycles']]
+	plt.plot(list(constant['number of pods']), 
 			list(single_pod_lat / constant['number of cycles']), 
-			label = "constant", marker = 'o', color = 'r')
-	plt.plot(list(linear_inc['number of SAs']),
+			label = labels[0], marker = markers[0], color = colors[0])
+	plt.plot(list(linear_inc['number of pods']),
 			list(single_pod_lat / linear_inc['number of cycles']), 
-			label = "linearly increasing", marker = 'v', color = 'b')
-	plt.title("Impact of Internal BW on Speedup")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
-	plt.legend(title="internal bandwidth", loc = "middle right")
-	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+			label = labels[1], marker = markers[1], color = colors[1])
+	plt.title("Impact of Internal BW on Speedup",fontsize = 18)
+	plt.xlabel("Number of Pods",fontsize = 18)
+	plt.ylabel("Speedup",fontsize = 18)
+	plt.legend(title="internal bandwidth", loc = "upper left")
+	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
 	plt.clf()
+	plt.close('all')
+
+
+
+def plot_exp1fig2(fname = 'exp1fig2'):
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['k','aqua','g','b','m','r']
+	if not os.path.exists(fname):
+		print("file %s not found" % fname)
+		return
+	#
+	df = pandas.read_csv(fname)
+	df = df.sort_values('number of pods')
+	NUM_PODS = [1,2,3,4,6,8,12,16]
+	single_pod_lat = df[(df['lat_dram'] == 8) & (df['number of pods'] == 1)]['number of cycles']._values[0]
+	tile_sz = 8
+	#
+	# lat_dram = [20,10,5,1]
+	lat_dram = [32,16,8,4]
+	i = 0;
+	for l in lat_dram:
+		speedup = single_pod_lat / df[(df['lat_dram'] == l)]['number of cycles']
+		plt.plot(list(NUM_PODS), list(speedup), label = (2.0/l)*(tile_sz**2), marker = markers[i], color = colors[i])
+		i += 1
+	#
+	plt.title("Impact of External BW on Speedup", fontsize = 18)
+	plt.xlabel("Number of Pods", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
+	plt.legend(title="External bw (GB/s)", loc = "upper left")
+	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+
 
 
 
@@ -54,8 +121,8 @@ def plot_exp1fig3(fname = 'exp1fig3'):
 		i += 1
 	#
 	plt.title("Impact of Additional Internal BW")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(title="internal bw\nincrease factor", loc = "middle right", prop={'size': 13})
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -63,34 +130,6 @@ def plot_exp1fig3(fname = 'exp1fig3'):
 
 
 
-def plot_exp1fig4(fname = 'exp1fig4'):
-	plt.rcParams.update({'font.size': 16})
-	if not os.path.exists(fname):
-		print("file %s not found" % fname)
-		return
-	#
-	df = pandas.read_csv(fname)
-	df = df.sort_values('number of SAs')
-	NUM_SA = [16,32,64]
-	single_pod_lat = df[(df['lat_dram'] == 4) & (df['number of SAs'] == 16)]['number of cycles']._values[0]
-	#
-	# lat_dram = [20,10,5,1]
-	lat_dram = [32,16,8,4]
-	markers = ['o','v','s','d','^']
-	colors = ['brown','y','chartreuse','b']
-	i = 0;
-	for l in lat_dram:
-		speedup = single_pod_lat / df[(df['lat_dram'] == l)]['number of cycles']
-		plt.plot(list(NUM_SA), list(speedup), label = 2.0/l, marker = markers[i], color = colors[i])
-		i += 1
-	#
-	plt.title("Impact of External BW on Speedup")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
-	plt.legend(title="external bw", loc = "middle right")
-	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
-	plt.show()
-	plt.clf()
 
 
 
@@ -114,8 +153,8 @@ def plot_exp1fig5(fname = 'exp1fig5'):
 		i += 1
 	#
 	plt.title("Impact of Local Accumulation")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(title="Pod size (s)", loc = "middle right")
 	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -145,8 +184,8 @@ def plot_exp1fig6(fname = 'exp1fig6'):
 		i += 1
 	#
 	plt.title("Impact of Local Memory Size on Speedup")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(title="N-dim factor", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -175,7 +214,7 @@ def plot_exp1fig8(fname = 'exp1fig8'):
 	# 		list((single_pod_lat*100) / (acc_s4['number of cycles']*NUM_SA)), 
 	# 		label = "increasing", marker = 'o')
 	# plt.title("Impact of Local Accumulation on Strong Scaling Efficiency")
-	# plt.xlabel("Number of SAs", fontsize = 20)
+	# plt.xlabel("Number of SAs", fontsize = 18)
 	# plt.ylabel("Strong Scaling Efficiency (%)")
 	# plt.legend(title="pod size", loc = "middle right")
 	plt.plot(list(acc_s2['number of SAs']), 
@@ -185,8 +224,8 @@ def plot_exp1fig8(fname = 'exp1fig8'):
 			list(single_pod_lat / acc_s4['number of cycles']), 
 			label = "increasing", marker = 'o')
 	plt.title("Impact of Local Accumulation on Speedup")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(title="pod size", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -214,8 +253,8 @@ def plot_exp1_local_acc(fname = 'local_acc'):
 		i += 1
 	#
 	plt.title('Impact of Local Accumulation')
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(loc = "upper left", prop={'size': 13})
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
@@ -258,8 +297,8 @@ def roofline():
 	plt.title('Roofline Model for Various Pod Sizes')
 	plt.xscale('log', basex=2)
 	plt.yscale('log', basey=2)
-	plt.xlabel('Operational Intensity (tile mults / tile)', fontsize = 20)
-	plt.ylabel('Performance (tile mults / cycle)', fontsize = 20)
+	plt.xlabel('Operational Intensity (tile mults / tile)', fontsize = 18)
+	plt.ylabel('Performance (tile mults / cycle)', fontsize = 18)
 	# plt.grid()
 	plt.axvline(16, label = 'memory/compute\nboundary', linestyle='dashed')
 	# plt.text(16,0,'memory vs compute boundary',rotation=90)
@@ -291,8 +330,8 @@ def plot_exp1ABskip(fname = 'exp1ABskip'):
 		i+=1
 	#
 	plt.title("Impact of AB Skipping on Speedup")
-	plt.xlabel("Over-Provisioning Factor", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Over-Provisioning Factor", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.xticks(np.arange(0,4,1))
 	# plt.yticks(np.arange(0,0.15,0.01))
 	plt.legend(loc = "upper left")
@@ -309,8 +348,8 @@ def plot_mem_size_R(fname = 'mem_size_R', NUM_SA = 64):
 	plt.figure(figsize=(4,3)) 
 	plt.plot(R,SZ_sr, 'r')
 	# plt.title("Local memory size as a function of R")
-	plt.xlabel("R", fontsize = 20)
-	plt.ylabel("memory size (tiles)", fontsize = 20)
+	plt.xlabel("R", fontsize = 18)
+	plt.ylabel("memory size (tiles)", fontsize = 18)
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
 	plt.close('all')
@@ -523,8 +562,8 @@ def test(fname = 'all_combs'):
 	#
 	plt.plot(SAs, [i/single_pod for i in SAs], label = 'ideal')	
 	plt.title("Impact of Local Accumulation on Speedup")
-	plt.xlabel("Number of SAs", fontsize = 20)
-	plt.ylabel("Speedup", fontsize = 20)
+	plt.xlabel("Number of SAs", fontsize = 18)
+	plt.ylabel("Speedup", fontsize = 18)
 	plt.legend(title="s value", loc = "middle right")
 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 	plt.show()
