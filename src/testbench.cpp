@@ -26,52 +26,52 @@ void write_perf_results(int total_time) {
   ofstream myfile;
   myfile.open(PERF_FILE, ios::app);
 
-  myfile << M << "," << K << "," << N << "," << Sx << "," << Sy 
-  << "," << sx << "," << alpha << "," << tile_sz << "," << total_time << "\n";
+  // myfile << M << "," << K << "," << N << "," << Sx << "," << Sy 
+  // << "," << sx << "," << alpha << "," << tile_sz << "," << total_time << "\n";
   
-  // if(PERF_FILE == "exp1fig1") {
-  //   // myfile << NUM_SA << "," << total_time << "," << bw_growth << "\n";
-  // } 
+  if(PERF_FILE == "exp1fig1") {
+    myfile << NUM_PODS << "," << total_time << "," << int_bw_growth << "\n";
+  } 
 
-  // else if(PERF_FILE == "exp1fig2") {
-  //   myfile << NUM_SA << "," << total_time << "," << K << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig2") {
+    myfile << NUM_PODS << "," << total_time << "," << lat_dram << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig3") {
-  //   // myfile << NUM_SA << "," << total_time << "," << lat_internal_factor << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig3") {
+    myfile << NUM_SA << "," << int_bw_growth << "," << total_time << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig4") {
-  //   myfile << NUM_SA << "," << total_time << "," << lat_dram << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig4") {
+    myfile << NUM_SA << "," << total_time << "," << lat_dram << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig5") {
-  //   myfile << NUM_SA << "," << total_time << "," << sx << "," << lat_internal <<"\n";
-  // }
+  else if(PERF_FILE == "exp1fig5") {
+    myfile << NUM_SA << "," << total_time << "," << sx << "," << lat_internal <<"\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig6") {
-  //   myfile << NUM_SA << "," << total_time << "," << N_sr << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig6") {
+    myfile << NUM_SA << "," << total_time << "," << N_sr << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig7") {
-  //   // myfile << NUM_SA << "," << total_time << "," << lat_link[2] << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig7") {
+    // myfile << NUM_SA << "," << total_time << "," << lat_link[2] << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig8") {
-  //   myfile << NUM_SA << "," << total_time << "," << sx << "\n";
-  // }
+  else if(PERF_FILE == "exp1fig8") {
+    myfile << NUM_SA << "," << total_time << "," << sx << "\n";
+  }
 
-  // else if(PERF_FILE == "mat_dim_test") {
-  //   myfile << M << "," << K << "," << N << "," << total_time << "\n";
-  // }
+  else if(PERF_FILE == "mat_dim_test") {
+    myfile << M << "," << K << "," << N << "," << total_time << "\n";
+  }
 
-  // else if(PERF_FILE == "cpu_comp_test") {
-  //   myfile << Sx << "," << Sy << "," << total_time << "\n";
-  // }
+  else if(PERF_FILE == "cpu_comp_test") {
+    myfile << Sx << "," << Sy << "," << total_time << "\n";
+  }
 
-  // else if(PERF_FILE == "exp1fig2") {
+  else if(PERF_FILE == "exp1fig2") {
 
-  // }
+  }
   myfile.close();
 }
 
@@ -294,7 +294,8 @@ int sc_main(int argc, char *argv[]) {
   vector<vector<PacketSwitch::Packet>> result_buf(N_sr, vector<PacketSwitch::Packet>(M_sr)); 
   my_testbench.sram.result_buf = result_buf;
 
-  cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
+  // cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << ", DRAM bw = " << R << endl;
+  cout << "M = " << M*tile_sz << ", K = " << K*tile_sz << ", N = " << N*tile_sz << endl;
   // Create weight and activation matrices from weight/activation files or random values
   if(USE_FILE) {
     my_testbench.dram.weights = GetMatFromFile<PacketSwitch::AccumType>(WEIGHT_FILE, M*tile_sz, K*tile_sz);
