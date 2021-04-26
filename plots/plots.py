@@ -6,6 +6,62 @@ import os
 import re
 
 
+def ext_mem_accesses(M,K,N,Sx,Sy,s,alpha,tile_sz,p=None):
+	if p == None:
+		p = ((Sx*Sy)/(s*s))
+	M_sr = s*p*tile_sz
+	K_sr = s*tile_sz
+	N_sr = s*p*alpha*tile_sz
+	num_cbs_blks = K/K_sr * M/M_sr * N/N_sr
+	dram_transfers_per_blk = (M_sr*K_sr +  K_sr*N_sr) # CAKE transmits only weight and data
+	result = M*N
+	return(num_cbs_blks , num_cbs_blks*dram_transfers_per_blk + result)
+
+
+def num_cb_blks(M,K,N,Sx,Sy,s,alpha,tile_sz,p=None):
+	if p == None:
+		p = ((Sx*Sy)/(s*s))
+	M_sr = s*p*tile_sz
+	K_sr = s*tile_sz
+	N_sr = s*p*alpha*tile_sz
+	return(K/K_sr * M/M_sr * N/N_sr)
+
+
+'''
+	inputs : MMM dims and arch params
+	return : local memory (SRAM) size in bytes
+'''
+def local_mem_size(Sx,Sy,s,alpha,tile_sz,p=None):
+	if p == None:
+		p = ((Sx*Sy)/(s*s))	
+	M_sr = s*p*tile_sz
+	K_sr = s*tile_sz
+	N_sr = s*p*alpha*tile_sz
+	weights = M_sr*K_sr
+	data = K_sr*N_sr
+	partial = M_sr*N_sr
+	return(weights+data+partial)
+
+def plot_local_mem_sz(fname = 'local_mem_sz'):
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['g','b','aqua','k','m','r']
+	plt.figure(figsize = (6,4))
+	plt.plot(list(range(1,17)), [local_mem_size(8,8,2,1,8,i) for i in range(1,17)],
+		marker = markers[0], color = colors[0])
+	plt.title("Local Memory Size vs. Compute Power",fontsize = 18)
+	plt.xlabel("Number of SAs",fontsize = 18)
+	plt.xlim(xmin=0)
+	plt.ylabel("Local Memory Size (bytes)",fontsize = 18)
+	plt.ylim(ymin=0)
+	# plt.legend(title="Internal BW", loc = "upper left")
+	# plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
+
+
+
 
 def plot_exp1fig1(fname = 'exp1fig1'):
 	plt.rcParams.update({'font.size': 12})
@@ -39,6 +95,71 @@ def plot_exp1fig1(fname = 'exp1fig1'):
 	# plt.show()
 	# plt.clf()
 	# plt.close('all')
+
+
+def plot_mem_accesses(fname = 'mem_access_cell'):
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['g','b','k','r','m','aqua']	
+	labels = ['staging buffers, s=2', 'local memory, s=2','staging buffers, s=4', 'local memory, s=4']
+	NUM_PODS = [2,3,4,6,8,12,16]
+	NUM_SA = [i*2*2 for i in NUM_PODS]
+	NUM_PODS1 = [1,2,3,4]
+	NUM_SA1 = [i*4*4 for i in NUM_PODS1]
+	plt.figure(figsize = (6,4))
+	plt.plot(NUM_SA, [2*2*num_cb_blks(768,768,768,8,8,2,1,8,i) for i in NUM_PODS], 
+			label = labels[0], marker = markers[0], color = colors[0])
+	plt.plot(NUM_SA, [2*3*num_cb_blks(768,768,768,8,8,2,1,8,i) for i in NUM_PODS], 
+			label = labels[1], marker = markers[1], color = colors[1])
+	plt.plot(NUM_SA1, [2*2*num_cb_blks(768,768,768,8,8,4,1,8,i) for i in NUM_PODS1], 
+			label = labels[2], marker = markers[0], color = colors[2])
+	plt.plot(NUM_SA1, [2*3*num_cb_blks(768,768,768,8,8,4,1,8,i) for i in NUM_PODS1], 
+			label = labels[3], marker = markers[1], color = colors[3])
+	plt.title("Memory Accesses Per Cell In Maestro",fontsize = 18)
+	plt.xlabel("Number of SAs",fontsize = 18)
+	plt.xlim(xmin=0)
+	plt.xticks(NUM_SA)
+	plt.ylabel("Number Memory Accesses",fontsize = 18)
+	plt.ylim(ymin=0)
+	plt.legend(title="Memory Type", loc = "center right")
+	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
+
+
+
+def plot_access_per_cycle(fname = 'access_per_cycle_cell'):
+	plt.rcParams.update({'font.size': 12})
+	markers = ['o','v','s','d','^']
+	colors = ['g','b','r','k','m','aqua']
+	labels = ['staging buffers, s=2', 'local memory, s=2','staging buffers, s=4', 'local memory, s=4']
+	#
+	df = pandas.read_csv('exp1fig1')
+	df = df.sort_values('number of pods')
+	NUM_PODS = [1,2,3,4,6,8,12,16]
+	single_pod_lat = df[(df['bw growth'] == 'C')][(df['number of pods'] == 1)]['number of cycles']._values[0]
+	constant = df[(df['bw growth'] == 'C')][['number of pods','number of cycles']]
+	linear_inc =  df[(df['bw growth'] == 'I')][['number of pods','number of cycles']]
+	NUM_SA = [i*2*2 for i in NUM_PODS]
+	plt.figure(figsize = (6,4))
+	plt.plot(NUM_SA, [(2*2*num_cb_blks(768,768,768,8,8,2,1,8,NUM_PODS[i])) / 
+		(list(linear_inc['number of cycles'])[i] / (10**9)) for i in range(len(NUM_PODS))], 
+		label = labels[0], marker = markers[0], color = colors[0])
+	plt.plot(NUM_SA, [(2*3*num_cb_blks(768,768,768,8,8,2,1,8,NUM_PODS[i])) / 
+		(list(linear_inc['number of cycles'])[i] / (10**9)) for i in range(len(NUM_PODS))], 
+		label = labels[1], marker = markers[1], color = colors[1])
+	plt.title("Avg. Memory Accesses/Sec Per Cell",fontsize = 18)
+	plt.xlabel("Number of SAs",fontsize = 18)
+	plt.xlim(xmin=0)
+	plt.xticks(NUM_SA)
+	plt.ylabel("Avg. Memory Accesses/sec",fontsize = 18)
+	plt.ylim(ymin=0)
+	plt.legend(title="memory type", loc = "upper right")
+	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
+	plt.show()
+	plt.clf()
+	plt.close('all')
 
 
 
@@ -299,35 +420,6 @@ if __name__ == '__main__':
 # 	plt.savefig("%s.pdf" % fname, bbox_inches='tight')
 # 	plt.show()
 # 	plt.close('all')
-
-
-
-# def ext_mem_accesses(M,K,N,Sx,Sy,s,alpha,tile_sz):
-# 	'''
-# 		inputs : MMM dims and arch params
-# 		return number accesses (loads and stores) to external memory (DRAM)
-# 	'''
-# 	M_sr = s*((Sx*Sy)/(s*s))*tile_sz
-# 	K_sr = s*tile_sz
-# 	N_sr = s*((Sx*Sy)/(s*s))*alpha*tile_sz
-# 	num_cbs_blks = K/K_sr * M/M_sr * N/N_sr
-# 	dram_transfers_per_blk = (M_sr*K_sr +  K_sr*N_sr) # CAKE transmits only weight and data
-# 	result = M*N
-# 	return(num_cbs_blks*dram_transfers_per_blk + result)
-
-
-# def local_mem_size(Sx,Sy,s,alpha,tile_sz):
-# 	'''
-# 		inputs : MMM dims and arch params
-# 		return : local memory (SRAM) size in bytes
-# 	'''
-# 	M_sr = s*((Sx*Sy)/(s*s))*tile_sz
-# 	K_sr = s*tile_sz
-# 	N_sr = s*((Sx*Sy)/(s*s))*alpha*tile_sz
-# 	weights = M_sr*K_sr
-# 	data = K_sr*N_sr
-# 	partial = M_sr*N_sr
-# 	return((weights+data+partial)*4)
 
 
 
